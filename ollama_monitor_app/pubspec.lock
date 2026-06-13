@@ -160,14 +160,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
-  init:
+  intl:
     dependency: "direct main"
     description:
-      name: init
-      sha256: "4e222f616f16f47a89ac64022472de03082bd1e6f39d25308217d6e630597e6c"
+      name: intl
+      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "0.20.2"
   jni:
     dependency: transitive
     description:
