@@ -69,6 +69,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       actions: [
+        // Server selector (only shown when multiple servers are configured)
+        if (svc.servers.length > 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: DropdownButton<String>(
+              value: svc.selectedServerId.isEmpty ? null : svc.selectedServerId,
+              underline: const SizedBox(),
+              dropdownColor: const Color(0xFF1C2128),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              icon: const Icon(Icons.dns_outlined, size: 16, color: Colors.white54),
+              items: svc.servers
+                  .map((s) => DropdownMenuItem(
+                        value: s.id,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.dns_outlined,
+                                size: 14, color: Colors.white38),
+                            const SizedBox(width: 6),
+                            Text(s.name),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (id) {
+                if (id != null) svc.selectServer(id);
+              },
+            ),
+          ),
         // Ollama version badge
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -145,7 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   context: context,
                   builder: (_) => const ChangePasswordDialog());
             } else if (value == 'settings') {
-              _showSettings(context, svc);
+              _showManageServers(context);
             } else if (value == 'logout') {
               await context.read<AuthService>().logout();
             }
@@ -161,9 +190,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             PopupMenuItem(
                 value: 'settings',
                 child: Row(children: [
-                  Icon(Icons.settings_outlined, size: 16, color: Colors.white70),
+                  Icon(Icons.dns_outlined, size: 16, color: Colors.white70),
                   SizedBox(width: 8),
-                  Text('Connection Settings'),
+                  Text('Manage Servers'),
                 ])),
             PopupMenuDivider(),
             PopupMenuItem(
@@ -382,49 +411,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ── Settings dialog ────────────────────────────────────────────────────────
+  // ── Manage Servers dialog ──────────────────────────────────────────────────
 
-  void _showSettings(BuildContext context, MonitorService svc) {
-    final hostCtrl = TextEditingController(text: svc.backendHost);
-    final portCtrl = TextEditingController(text: svc.backendPort.toString());
+  void _showManageServers(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2128),
-        title: const Text('Backend Connection'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: hostCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Host', hintText: 'localhost'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: portCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Port', hintText: '12434'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              svc.configure(
-                host: hostCtrl.text.trim(),
-                port: int.tryParse(portCtrl.text.trim()) ?? 12434,
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('Connect'),
-          ),
-        ],
-      ),
+      builder: (_) => const _ManageServersDialog(),
     );
   }
 }
@@ -450,6 +442,207 @@ class _SectionHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         const Expanded(child: Divider(color: Colors.white12)),
+      ],
+    );
+  }
+}
+
+// ── Manage Servers dialog ─────────────────────────────────────────────────────
+
+class _ManageServersDialog extends StatefulWidget {
+  const _ManageServersDialog();
+
+  @override
+  State<_ManageServersDialog> createState() => _ManageServersDialogState();
+}
+
+class _ManageServersDialogState extends State<_ManageServersDialog> {
+  final _nameCtrl = TextEditingController();
+  final _urlCtrl  = TextEditingController(text: 'http://');
+  final _pwCtrl   = TextEditingController();
+  bool _adding  = false;
+  bool _loading = false;
+  String _addError = '';
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _urlCtrl.dispose();
+    _pwCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addServer() async {
+    final auth = context.read<AuthService>();
+    setState(() { _loading = true; _addError = ''; });
+    final ok = await auth.addBackend(
+      _nameCtrl.text.trim(),
+      _urlCtrl.text.trim(),
+      _pwCtrl.text,
+    );
+    if (!mounted) return;
+    setState(() { _loading = false; });
+    if (ok) {
+      _nameCtrl.clear();
+      _urlCtrl.text = 'http://';
+      _pwCtrl.clear();
+      setState(() => _adding = false);
+    } else {
+      setState(() => _addError = auth.error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth     = context.watch<AuthService>();
+    final backends = auth.backends;
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1C2128),
+      title: const Text('Manage Servers'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Existing backends ──────────────────────────────────────────
+            ...backends.map((b) {
+              final isPrimary = b.id == backends.first.id;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.dns_outlined,
+                          size: 16,
+                          color: b.token.isNotEmpty
+                              ? Colors.greenAccent
+                              : Colors.redAccent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(b.name,
+                                style: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600)),
+                            Text(b.url,
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.white38)),
+                          ],
+                        ),
+                      ),
+                      if (isPrimary)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurpleAccent.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('PRIMARY',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.deepPurpleAccent,
+                                  fontWeight: FontWeight.w700)),
+                        )
+                      else
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline,
+                              size: 18, color: Colors.redAccent),
+                          onPressed: () => auth.removeBackend(b.id),
+                          tooltip: 'Remove',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+
+            const SizedBox(height: 8),
+
+            // ── Add server ─────────────────────────────────────────────────
+            if (!_adding)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add Server'),
+                onPressed: () => setState(() => _adding = true),
+              )
+            else ...[
+              const Divider(color: Colors.white12),
+              const SizedBox(height: 4),
+              const Text('Add Server',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white54)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _nameCtrl,
+                style: const TextStyle(fontSize: 13, color: Colors.white),
+                decoration: const InputDecoration(
+                    labelText: 'Name', hintText: 'GPU Server 2', isDense: true),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _urlCtrl,
+                style: const TextStyle(fontSize: 13, color: Colors.white),
+                decoration: const InputDecoration(
+                    labelText: 'Backend URL',
+                    hintText: 'http://192.168.1.11:8765',
+                    isDense: true),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _pwCtrl,
+                obscureText: true,
+                style: const TextStyle(fontSize: 13, color: Colors.white),
+                decoration: const InputDecoration(
+                    labelText: 'Password', isDense: true),
+              ),
+              if (_addError.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(_addError,
+                    style: const TextStyle(
+                        color: Colors.redAccent, fontSize: 12)),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() { _adding = false; _addError = ''; }),
+                    child: const Text('Cancel'),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: _loading ? null : _addServer,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text('Connect'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close')),
       ],
     );
   }

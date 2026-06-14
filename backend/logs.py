@@ -109,7 +109,7 @@ def _should_persist_log(text: str, label: str) -> bool:
     ))
 
 
-def _make_entry(text: str, label: str) -> dict:
+def _make_entry(text: str, label: str, server_id: str = "default") -> dict:
     display_text = text
     level = _level_from_line(text)
     if label == 'app' and _STRUCT_RE.match(text):
@@ -117,10 +117,11 @@ def _make_entry(text: str, label: str) -> dict:
         display_text = _format_app_line(pairs)
         level = _app_level(pairs)
     return {
-        'ts':     datetime.now(timezone.utc).isoformat(),
-        'text':   display_text,
-        'source': label,
-        'level':  level,
+        'ts':        datetime.now(timezone.utc).isoformat(),
+        'text':      display_text,
+        'source':    label,
+        'level':     level,
+        'server_id': server_id,
     }
 
 
@@ -130,9 +131,9 @@ def _noisy(text: str, label: str) -> bool:
     return _is_noisy_app(_parse_kv(text))
 
 
-async def tail_log_file(log_path: Path, label: str):
+async def tail_log_file(log_path: Path, label: str, server_id: str = "default"):
     if not log_path.exists():
-        entry = _make_entry(f'[monitor] Log not found: {log_path}', label)
+        entry = _make_entry(f'[monitor] Log not found: {log_path}', label, server_id)
         log_lines.append(entry)
         db.insert_log(entry)
         return
@@ -143,9 +144,9 @@ async def tail_log_file(log_path: Path, label: str):
             for line in f.readlines()[-100:]:
                 text = line.rstrip()
                 if not _noisy(text, label):
-                    log_lines.append(_make_entry(text, label))
+                    log_lines.append(_make_entry(text, label, server_id))
     except Exception as e:
-        log_lines.append(_make_entry(f'[monitor] Seed error ({label}): {e}', label))
+        log_lines.append(_make_entry(f'[monitor] Seed error ({label}): {e}', label, server_id))
 
     # Live tail
     try:
@@ -156,39 +157,73 @@ async def tail_log_file(log_path: Path, label: str):
                 if line:
                     text = line.rstrip()
                     if not _noisy(text, label):
-                        entry = _make_entry(text, label)
+                        entry = _make_entry(text, label, server_id)
                         log_lines.append(entry)
                         if _should_persist_log(entry['text'], label):
                             db.insert_log(entry)
-                        await broadcast({'type': 'log', 'data': entry})
+                        await broadcast({'type': 'log', 'server_id': server_id, 'data': entry})
                     if label == 'server':
-                        log_parser.update_timing_buffer(text)
-                        req = log_parser.parse_gin_request(text)
+                        log_parser.update_timing_buffer(text, server_id)
+                        req = log_parser.parse_gin_request(text, server_id)
                         if req is not None:
                             recent_requests.append(req)
                             db.insert_request(req)
-                            await broadcast({'type': 'request', 'data': req})
+                            await broadcast({'type': 'request', 'server_id': server_id, 'data': req})
                 else:
                     await asyncio.sleep(0.2)
     except Exception as e:
-        entry = _make_entry(f'[monitor] Tail error ({label}): {e}', label)
+        entry = _make_entry(f'[monitor] Tail error ({label}): {e}', label, server_id)
         log_lines.append(entry)
         db.insert_log(entry)
 
 
-async def tail_log_journald():
+def _journald_label(text: str) -> str:
+    """Detect whether a raw journald message is an app (structured) or server (gin/llama) line."""
+    return 'app' if _STRUCT_RE.match(text) else 'server'
+
+
+async def tail_log_journald(server_id: str = "default"):
+    # ── Phase 1: seed last 100 lines (no broadcast, no request parsing to avoid DB dups) ──
+    try:
+        seed_proc = await asyncio.create_subprocess_exec(
+            'journalctl', '-u', 'ollama', '-n', '100', '--no-pager', '--output=cat',
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+        seed_out, _ = await seed_proc.communicate()
+        for raw_line in seed_out.splitlines():
+            text = raw_line.decode(errors='replace').strip()
+            if not text:
+                continue
+            label = _journald_label(text)
+            if not _noisy(text, label):
+                log_lines.append(_make_entry(text, label, server_id))
+    except Exception as e:
+        log_lines.append(_make_entry(f'[monitor] journalctl seed error: {e}', 'server', server_id))
+
+    # ── Phase 2: live follow from this moment onwards ──────────────────────────
     try:
         proc = await asyncio.create_subprocess_exec(
-            'journalctl', '-u', 'ollama', '-f', '-n', '100', '--no-pager',
+            'journalctl', '-u', 'ollama', '-f', '-n', '0', '--no-pager', '--output=cat',
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
         async for raw in proc.stdout:
             text = raw.decode(errors='replace').rstrip()
-            entry = _make_entry(text, 'server')
+            if not text:
+                continue
+            label = _journald_label(text)
+            if _noisy(text, label):
+                continue
+            entry = _make_entry(text, label, server_id)
             log_lines.append(entry)
-            if _should_persist_log(text, 'server'):
+            if _should_persist_log(entry['text'], label):
                 db.insert_log(entry)
-            await broadcast({'type': 'log', 'data': entry})
+            await broadcast({'type': 'log', 'server_id': server_id, 'data': entry})
+            if label == 'server':
+                log_parser.update_timing_buffer(text, server_id)
+                req = log_parser.parse_gin_request(text, server_id)
+                if req is not None:
+                    recent_requests.append(req)
+                    db.insert_request(req)
+                    await broadcast({'type': 'request', 'server_id': server_id, 'data': req})
     except Exception as e:
-        entry = _make_entry(f'[monitor] journalctl error: {e}', 'server')
+        entry = _make_entry(f'[monitor] journalctl error: {e}', 'server', server_id)
         log_lines.append(entry)
         db.insert_log(entry)

@@ -1,11 +1,43 @@
+import json
 import os
 import platform
 from pathlib import Path
 
-OLLAMA_BASE    = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 POLL_INTERVAL  = float(os.getenv("POLL_INTERVAL", "2"))
 PRUNE_INTERVAL = 3600
 LOG_KEEP_DAYS  = int(os.getenv("LOG_KEEP_DAYS", "7"))
+
+
+def _parse_servers() -> list[dict]:
+    """Parse OLLAMA_SERVERS into a list of {id, name, url} dicts.
+
+    Supported formats:
+      JSON array: [{"id":"s1","name":"GPU Box","url":"http://192.168.1.10:11434"}]
+      CSV urls:   http://host1:11434,http://host2:11434
+    Falls back to OLLAMA_HOST / localhost:11434 when unset.
+    """
+    raw = os.getenv("OLLAMA_SERVERS", "").strip()
+    if raw:
+        if raw.startswith("["):
+            try:
+                servers = json.loads(raw)
+                for i, s in enumerate(servers):
+                    s.setdefault("id",   f"s{i+1}")
+                    s.setdefault("name", f"Server {i+1}")
+                if servers:
+                    return servers
+            except json.JSONDecodeError:
+                pass
+        urls = [u.strip() for u in raw.split(",") if u.strip()]
+        if urls:
+            return [{"id": f"s{i+1}", "name": f"Server {i+1}", "url": url}
+                    for i, url in enumerate(urls)]
+    url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    return [{"id": "default", "name": "Default", "url": url}]
+
+
+SERVERS: list[dict] = _parse_servers()
+OLLAMA_BASE = SERVERS[0]["url"]   # backward compat
 
 
 def default_log_paths() -> list[tuple[Path, str]]:

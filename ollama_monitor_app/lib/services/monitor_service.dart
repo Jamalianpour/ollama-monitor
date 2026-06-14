@@ -5,54 +5,130 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../models/backend_entry.dart';
 import '../models/monitor_state.dart';
 
+// ── Per-backend WebSocket connection ─────────────────────────────────────────
+
+class _BackendConn {
+  final BackendEntry entry;
+  WebSocketChannel? channel;
+  Timer? reconnectTimer;
+  bool   connected = false;
+  String status    = 'Connecting…';
+
+  _BackendConn(this.entry);
+
+  String get wsUrl {
+    final base = entry.url
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://');
+    return '$base/ws?token=${entry.token}';
+  }
+}
+
+// ── MonitorService ────────────────────────────────────────────────────────────
+
 class MonitorService extends ChangeNotifier {
-  // ── Config ────────────────────────────────────────────────────────────────
-  String _backendHost = 'localhost';
-  int _backendPort = 12434;
-  String _token = '';
+  final Map<String, _BackendConn> _connections = {};
+  String _selectedServerId = '';
 
-  String get backendHost => _backendHost;
-  int get backendPort => _backendPort;
-  String get backendBase => 'http://$_backendHost:$_backendPort';
-  String get wsUrl => 'ws://$_backendHost:$_backendPort/ws?token=$_token';
+  // ── Per-server snapshot + history maps ───────────────────────────────────────
+  final Map<String, MonitorSnapshot?> _snapshots    = {};
+  final Map<String, List<double>>     _cpuHistories = {};
+  final Map<String, List<double>>     _ramHistories = {};
 
-  Map<String, String> get _authHeaders => {
-    'Authorization': 'Bearer $_token',
-  };
+  // ── Shared collections (all backends, tagged by serverId) ─────────────────
+  final List<LogLine>        _logs     = [];
+  final List<RequestRecord>  _requests = [];
+  final List<Map<String, dynamic>> _logFiles = [];
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  MonitorSnapshot? _latest;
-  final List<LogLine> _logs = [];
-  final List<RequestRecord> _requests = [];
-  final List<double> _cpuHistory = [];
-  final List<double> _ramHistory = [];
-  bool _connected = false;
-  bool _historyLoaded = false;
-  String _statusMessage = 'Connecting…';
-  String _ollamaVersion = '–';
-  List<Map<String, dynamic>> _logFiles = [];
+  bool   _historyLoaded = false;
 
-  MonitorSnapshot? get latest => _latest;
-  List<LogLine> get logs => List.unmodifiable(_logs);
-  List<RequestRecord> get requests => List.unmodifiable(_requests);
-  List<double> get cpuHistory => List.unmodifiable(_cpuHistory);
-  List<double> get ramHistory => List.unmodifiable(_ramHistory);
-  bool get connected => _connected;
+  // ── Public getters ──────────────────────────────────────────────────────────
+
+  String get selectedServerId => _selectedServerId;
+
+  List<ServerInfo> get servers => _connections.values
+      .map((c) => ServerInfo(id: c.entry.id, name: c.entry.name))
+      .toList();
+
+  bool get connected =>
+      _connections.values.any((c) => c.connected);
+
+  String get statusMessage {
+    final conn = _connections[_selectedServerId];
+    if (conn != null) return conn.status;
+    if (_connections.isEmpty) return 'No servers configured';
+    final ok  = _connections.values.where((c) => c.connected).length;
+    final tot = _connections.length;
+    return '$ok/$tot connected';
+  }
+
   bool get historyLoaded => _historyLoaded;
-  String get statusMessage => _statusMessage;
-  String get ollamaVersion => _ollamaVersion;
-  List<Map<String, dynamic>> get logFiles => List.unmodifiable(_logFiles);
 
-  /// Computes aggregate stats live from the in-memory request list —
-  /// always up-to-date without a separate network call.
+  MonitorSnapshot? get latest => _snapshots[_selectedServerId];
+
+  List<double> get cpuHistory =>
+      List.unmodifiable(_cpuHistories[_selectedServerId] ?? []);
+
+  List<double> get ramHistory =>
+      List.unmodifiable(_ramHistories[_selectedServerId] ?? []);
+
+  String get ollamaVersion =>
+      _snapshots[_selectedServerId]?.ollamaVersion ?? '–';
+
+  List<LogLine> get logs {
+    if (_selectedServerId.isEmpty) return List.unmodifiable(_logs);
+    return _logs.where((l) => l.serverId == _selectedServerId).toList();
+  }
+
+  List<RequestRecord> get requests {
+    if (_selectedServerId.isEmpty) return List.unmodifiable(_requests);
+    return _requests.where((r) => r.serverId == _selectedServerId).toList();
+  }
+
+  List<Map<String, dynamic>> get logFiles {
+    if (_selectedServerId.isEmpty) return List.unmodifiable(_logFiles);
+    return _logFiles
+        .where((lf) => lf['server_id'] == _selectedServerId)
+        .toList();
+  }
+
+  // Backward-compat getters used by old code paths
+  String get backendHost {
+    final conn = _connections[_selectedServerId];
+    if (conn != null) return Uri.parse(conn.entry.url).host;
+    return _connections.isNotEmpty
+        ? Uri.parse(_connections.values.first.entry.url).host
+        : 'localhost';
+  }
+
+  int get backendPort {
+    final conn = _connections[_selectedServerId];
+    if (conn != null) return Uri.parse(conn.entry.url).port;
+    return _connections.isNotEmpty
+        ? Uri.parse(_connections.values.first.entry.url).port
+        : 12434;
+  }
+
+  // ── Server selection ─────────────────────────────────────────────────────────
+
+  void selectServer(String id) {
+    if (_selectedServerId == id) return;
+    _selectedServerId = id;
+    notifyListeners();
+  }
+
+  // ── Aggregate stats ───────────────────────────────────────────────────────────
+
   AggregateStats statsFor(double hours) {
     final cutoff = DateTime.now()
         .subtract(Duration(milliseconds: (hours * 3600 * 1000).round()));
     final recent = _requests.where((r) {
       final ts = DateTime.tryParse(r.ts);
-      return ts != null && ts.isAfter(cutoff);
+      if (ts == null || !ts.isAfter(cutoff)) return false;
+      return _selectedServerId.isEmpty || r.serverId == _selectedServerId;
     }).toList();
 
     final durations = recent
@@ -69,7 +145,7 @@ class MonitorService extends ChangeNotifier {
       modelMap.putIfAbsent(r.model, () => []).add(r);
     }
     final byModel = modelMap.entries.map((e) {
-      final ms = e.value
+      final ms   = e.value
           .where((r) => r.durationMs != null)
           .map((r) => r.durationMs!.toDouble())
           .toList();
@@ -78,229 +154,281 @@ class MonitorService extends ChangeNotifier {
           .map((r) => r.tokens!.toDouble())
           .toList();
       return ModelStat(
-        model: e.key,
-        calls: e.value.length,
-        avgMs: ms.isNotEmpty ? ms.reduce((a, b) => a + b) / ms.length : null,
-        avgTokens: tkns.isNotEmpty ? tkns.reduce((a, b) => a + b) / tkns.length : null,
+        model:     e.key,
+        calls:     e.value.length,
+        avgMs:     ms.isNotEmpty
+            ? ms.reduce((a, b) => a + b) / ms.length
+            : null,
+        avgTokens: tkns.isNotEmpty
+            ? tkns.reduce((a, b) => a + b) / tkns.length
+            : null,
       );
     }).toList()
       ..sort((a, b) => b.calls.compareTo(a.calls));
 
     return AggregateStats(
-      hours: hours,
+      hours:         hours,
       totalRequests: recent.length,
-      errors: recent.where((r) => r.error).length,
+      errors:        recent.where((r) => r.error).length,
       avgDurationMs: durations.isNotEmpty
-          ? durations.reduce((a, b) => a + b) / durations.length : null,
+          ? durations.reduce((a, b) => a + b) / durations.length
+          : null,
       maxDurationMs: durations.isNotEmpty
-          ? durations.reduce((a, b) => a > b ? a : b) : null,
+          ? durations.reduce((a, b) => a > b ? a : b)
+          : null,
       avgTps: tpsList.isNotEmpty
-          ? tpsList.reduce((a, b) => a + b) / tpsList.length : null,
+          ? tpsList.reduce((a, b) => a + b) / tpsList.length
+          : null,
       byModel: byModel,
     );
   }
 
-  // ── WS ────────────────────────────────────────────────────────────────────
-  WebSocketChannel? _channel;
-  Timer? _reconnectTimer;
+  // ── configure ────────────────────────────────────────────────────────────────
 
-  MonitorService();
+  void configure({List<BackendEntry>? backends}) {
+    final list = backends ?? [];
 
-  void configure({String? host, int? port, String? token}) {
-    final newHost  = host  ?? _backendHost;
-    final newPort  = port  ?? _backendPort;
-    final newToken = token ?? _token;
-
-    // Skip reconnect when nothing actually changed
-    if (newHost == _backendHost && newPort == _backendPort && newToken == _token) return;
-
-    _backendHost = newHost;
-    _backendPort = newPort;
-    _token       = newToken;
-    _channel?.sink.close();
-    _reconnectTimer?.cancel();
-    _historyLoaded = false;
-    connect();
-  }
-
-  // ── Historical data from REST ─────────────────────────────────────────────
-
-  Future<void> loadHistory({double hours = 24}) async {
-    try {
-      await Future.wait([
-        _loadHistoryMetrics(hours),
-        _loadHistoryRequests(hours),
-      ]);
-      _historyLoaded = true;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('History load failed: $e');
-    }
-  }
-
-  Future<void> _loadHistoryMetrics(double hours) async {
-    final uri = Uri.parse('$backendBase/api/history/metrics?hours=$hours&limit=120');
-    final resp = await http.get(uri, headers: _authHeaders).timeout(const Duration(seconds: 10));
-    if (resp.statusCode != 200) return;
-    final data = json.decode(resp.body) as Map<String, dynamic>;
-    final rows = data['rows'] as List? ?? [];
-    _cpuHistory.clear();
-    _ramHistory.clear();
-    for (final r in rows) {
-      _cpuHistory.add((r['cpu_pct'] as num? ?? 0).toDouble());
-      _ramHistory.add((r['ram_pct'] as num? ?? 0).toDouble());
-    }
-    // Keep last 120 points
-    if (_cpuHistory.length > 120) {
-      _cpuHistory.removeRange(0, _cpuHistory.length - 120);
-      _ramHistory.removeRange(0, _ramHistory.length - 120);
-    }
-  }
-
-  Future<void> _loadHistoryRequests(double hours) async {
-    final uri = Uri.parse('$backendBase/api/history/requests?hours=$hours&limit=500');
-    final resp = await http.get(uri, headers: _authHeaders).timeout(const Duration(seconds: 10));
-    if (resp.statusCode != 200) return;
-    final data = json.decode(resp.body) as Map<String, dynamic>;
-    final rows = (data['requests'] as List? ?? [])
-        .map((r) => RequestRecord.fromJson(r as Map<String, dynamic>))
-        .toList();
-    // Merge: keep existing live entries, prepend history without duplicates
-    final existingTs = _requests.map((r) => '${r.ts}${r.model}').toSet();
-    for (final r in rows.reversed) {
-      if (!existingTs.contains('${r.ts}${r.model}')) {
-        _requests.insert(0, r);
+    // Remove connections for backends no longer in the list
+    final newIds = list.map((b) => b.id).toSet();
+    for (final id in _connections.keys.toList()) {
+      if (!newIds.contains(id)) {
+        _connections[id]!.reconnectTimer?.cancel();
+        _connections[id]!.channel?.sink.close();
+        _connections.remove(id);
       }
     }
-    if (_requests.length > 500) {
-      _requests.removeRange(0, _requests.length - 500);
+
+    // Add connections for new (not yet connected) backends
+    for (final entry in list) {
+      if (!_connections.containsKey(entry.id)) {
+        final conn = _BackendConn(entry);
+        _connections[entry.id] = conn;
+        _connectBackend(conn);
+      }
     }
+
+    // Auto-select if selection is missing/invalid
+    if ((_selectedServerId.isEmpty || !newIds.contains(_selectedServerId)) &&
+        list.isNotEmpty) {
+      _selectedServerId = list.first.id;
+    }
+
+    notifyListeners();
   }
 
-  // ── WebSocket ─────────────────────────────────────────────────────────────
+  // ── WebSocket connection ──────────────────────────────────────────────────────
 
-  void connect() {
+  void _connectBackend(_BackendConn conn) {
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      _channel!.stream.listen(
-        _onMessage,
-        onError: _onError,
-        onDone: _onDone,
+      conn.channel = WebSocketChannel.connect(Uri.parse(conn.wsUrl));
+      conn.channel!.stream.listen(
+        (raw) => _onMessage(raw, conn.entry.id),
+        onError: (_) => _onBackendError(conn),
+        onDone:  ()  => _onBackendDone(conn),
       );
-      _connected = true;
-      _statusMessage = 'Connected';
+      conn.connected = true;
+      conn.status    = 'Connected';
       notifyListeners();
-      // Load historical data after connecting
-      loadHistory();
-    } catch (e) {
-      _onError(e);
+      _loadBackendHistory(conn.entry);
+    } catch (_) {
+      _onBackendError(conn);
     }
   }
 
-  void _onMessage(dynamic raw) {
+  void _onBackendError(_BackendConn conn) {
+    if (!_connections.containsKey(conn.entry.id)) return;
+    conn.connected = false;
+    conn.status    = 'Disconnected – retrying in 3s…';
+    notifyListeners();
+    conn.reconnectTimer?.cancel();
+    conn.reconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (_connections.containsKey(conn.entry.id)) _connectBackend(conn);
+    });
+  }
+
+  void _onBackendDone(_BackendConn conn) {
+    if (!_connections.containsKey(conn.entry.id)) return;
+    conn.connected = false;
+    conn.status    = 'Connection closed – retrying in 3s…';
+    notifyListeners();
+    conn.reconnectTimer?.cancel();
+    conn.reconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (_connections.containsKey(conn.entry.id)) _connectBackend(conn);
+    });
+  }
+
+  void _onMessage(dynamic raw, String backendId) {
     try {
-      final msg = json.decode(raw as String) as Map<String, dynamic>;
+      final msg  = json.decode(raw as String) as Map<String, dynamic>;
       final type = msg['type'] as String?;
       final data = msg['data'];
 
       switch (type) {
         case 'init':
-          _logFiles = List<Map<String, dynamic>>.from(
-              data['log_files'] as List? ?? []);
-          final initLogs = data['logs'] as List? ?? [];
-          // Only seed if we have no logs yet (history may have been loaded)
-          if (_logs.isEmpty) {
-            _logs.addAll(initLogs.map((l) => LogLine.fromJson(l)));
+          // Update log files for this backend
+          _logFiles.removeWhere((lf) => lf['server_id'] == backendId);
+          for (final lf in (data['log_files'] as List? ?? [])) {
+            final m = Map<String, dynamic>.from(lf as Map<String, dynamic>);
+            m['server_id'] = backendId;
+            _logFiles.add(m);
           }
-          final initReqs = data['requests'] as List? ?? [];
-          for (final r in initReqs) {
-            final rec = RequestRecord.fromJson(r as Map<String, dynamic>);
-            if (!_requests.any((x) => x.ts == rec.ts && x.model == rec.model)) {
+
+          // Seed logs (only if we have none yet for this backend)
+          if (!_logs.any((l) => l.serverId == backendId)) {
+            for (final l in (data['logs'] as List? ?? [])) {
+              final m = Map<String, dynamic>.from(l as Map<String, dynamic>);
+              m['server_id'] = backendId;
+              _logs.add(LogLine.fromJson(m));
+            }
+          }
+
+          // Seed requests
+          for (final r in (data['requests'] as List? ?? [])) {
+            final m = Map<String, dynamic>.from(r as Map<String, dynamic>);
+            m['server_id'] = backendId;
+            final rec = RequestRecord.fromJson(m);
+            if (!_requests.any(
+                (x) => x.ts == rec.ts && x.model == rec.model && x.serverId == backendId)) {
               _requests.add(rec);
             }
           }
-          break;
 
         case 'metrics':
           final snap = MonitorSnapshot.fromJson(data as Map<String, dynamic>);
-          _latest = snap;
-          _ollamaVersion = snap.ollamaVersion;
-
+          _snapshots[backendId] = snap;
+          final cpu = _cpuHistories.putIfAbsent(backendId, () => []);
+          final ram = _ramHistories.putIfAbsent(backendId, () => []);
           if (snap.system != null) {
-            _cpuHistory.add(snap.system!.cpuPct);
-            _ramHistory.add(snap.system!.ramPct);
-            if (_cpuHistory.length > 120) _cpuHistory.removeAt(0);
-            if (_ramHistory.length > 120) _ramHistory.removeAt(0);
+            cpu.add(snap.system!.cpuPct);
+            ram.add(snap.system!.ramPct);
+            if (cpu.length > 120) cpu.removeAt(0);
+            if (ram.length > 120) ram.removeAt(0);
           }
-          break;
 
         case 'log':
-          _logs.add(LogLine.fromJson(data as Map<String, dynamic>));
-          if (_logs.length > 500) _logs.removeAt(0);
-          break;
+          final m = Map<String, dynamic>.from(data as Map<String, dynamic>);
+          m['server_id'] = backendId;
+          _logs.add(LogLine.fromJson(m));
+          if (_logs.length > 1000) _logs.removeAt(0);
 
         case 'request':
-          final rec = RequestRecord.fromJson(data as Map<String, dynamic>);
-          _requests.add(rec);
-          if (_requests.length > 500) _requests.removeAt(0);
-          break;
+          final m = Map<String, dynamic>.from(data as Map<String, dynamic>);
+          m['server_id'] = backendId;
+          _requests.add(RequestRecord.fromJson(m));
+          if (_requests.length > 1000) _requests.removeAt(0);
       }
 
       notifyListeners();
     } catch (e) {
-      debugPrint('WS parse error: $e');
+      debugPrint('WS parse error [$backendId]: $e');
     }
   }
 
-  void _onError(dynamic e) {
-    _connected = false;
-    _statusMessage = 'Disconnected – retrying in 3s…';
+  // ── Historical data ────────────────────────────────────────────────────────
+
+  Future<void> loadHistory({double hours = 24}) async {
+    _historyLoaded = false;
     notifyListeners();
-    _scheduleReconnect();
+    await Future.wait(
+      _connections.values.map((c) => _loadBackendHistory(c.entry, hours: hours)),
+    );
+    _historyLoaded = true;
+    notifyListeners();
   }
 
-  void _onDone() {
-    _connected = false;
-    _statusMessage = 'Connection closed – retrying in 3s…';
-    notifyListeners();
-    _scheduleReconnect();
-  }
+  Future<void> _loadBackendHistory(BackendEntry entry, {double hours = 24}) async {
+    final base    = entry.url;
+    final headers = {'Authorization': 'Bearer ${entry.token}'};
+    final sid     = entry.id;
 
-  void _scheduleReconnect() {
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 3), connect);
+    try {
+      final resp = await http
+          .get(Uri.parse('$base/api/history/metrics?hours=$hours&limit=120'),
+              headers: headers)
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        final rows = data['rows'] as List? ?? [];
+        final cpu  = <double>[];
+        final ram  = <double>[];
+        for (final r in rows) {
+          cpu.add((r['cpu_pct'] as num? ?? 0).toDouble());
+          ram.add((r['ram_pct'] as num? ?? 0).toDouble());
+        }
+        _cpuHistories[sid] = cpu;
+        _ramHistories[sid] = ram;
+      }
+    } catch (e) {
+      debugPrint('Metrics history load failed [${entry.name}]: $e');
+    }
+
+    try {
+      final resp = await http
+          .get(Uri.parse('$base/api/history/requests?hours=$hours&limit=500'),
+              headers: headers)
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        final rows = (data['requests'] as List? ?? []).map((r) {
+          final m = Map<String, dynamic>.from(r as Map<String, dynamic>);
+          m['server_id'] = sid;
+          return RequestRecord.fromJson(m);
+        }).toList();
+        final existingKeys = _requests
+            .where((r) => r.serverId == sid)
+            .map((r) => '${r.ts}${r.model}')
+            .toSet();
+        for (final r in rows.reversed) {
+          if (!existingKeys.contains('${r.ts}${r.model}')) {
+            _requests.insert(0, r);
+          }
+        }
+        if (_requests.length > 1000) {
+          _requests.removeRange(0, _requests.length - 1000);
+        }
+      }
+    } catch (e) {
+      debugPrint('Requests history load failed [${entry.name}]: $e');
+    }
   }
 
   @override
   void dispose() {
-    _reconnectTimer?.cancel();
-    _channel?.sink.close();
+    for (final conn in _connections.values) {
+      conn.reconnectTimer?.cancel();
+      conn.channel?.sink.close();
+    }
     super.dispose();
   }
 }
 
-// ── Aggregate stats model ─────────────────────────────────────────────────────
+// ── Aggregate stats models ────────────────────────────────────────────────────
 
 class ModelStat {
-  final String model;
-  final int calls;
+  final String  model;
+  final int     calls;
   final double? avgMs;
   final double? avgTokens;
 
-  ModelStat({required this.model, required this.calls, this.avgMs, this.avgTokens});
+  ModelStat({
+    required this.model,
+    required this.calls,
+    this.avgMs,
+    this.avgTokens,
+  });
 
   factory ModelStat.fromJson(Map<String, dynamic> j) => ModelStat(
-        model: j['model'] ?? '',
-        calls: j['calls'] ?? 0,
-        avgMs: j['avg_ms'] != null ? (j['avg_ms'] as num).toDouble() : null,
+        model:     j['model']      ?? '',
+        calls:     j['calls']      ?? 0,
+        avgMs:     j['avg_ms']     != null ? (j['avg_ms']     as num).toDouble() : null,
         avgTokens: j['avg_tokens'] != null ? (j['avg_tokens'] as num).toDouble() : null,
       );
 }
 
 class AggregateStats {
-  final double hours;
-  final int totalRequests;
-  final int errors;
+  final double  hours;
+  final int     totalRequests;
+  final int     errors;
   final double? avgDurationMs;
   final double? maxDurationMs;
   final double? avgTps;
@@ -315,19 +443,4 @@ class AggregateStats {
     this.avgTps,
     required this.byModel,
   });
-
-  factory AggregateStats.fromJson(Map<String, dynamic> j) {
-    final r = j['requests'] as Map<String, dynamic>? ?? {};
-    return AggregateStats(
-      hours: (j['hours'] as num? ?? 24).toDouble(),
-      totalRequests: (r['total'] as num? ?? 0).toInt(),
-      errors: (r['errors'] as num? ?? 0).toInt(),
-      avgDurationMs: r['avg_duration_ms'] != null ? (r['avg_duration_ms'] as num).toDouble() : null,
-      maxDurationMs: r['max_duration_ms'] != null ? (r['max_duration_ms'] as num).toDouble() : null,
-      avgTps: r['avg_tps'] != null ? (r['avg_tps'] as num).toDouble() : null,
-      byModel: (r['by_model'] as List? ?? [])
-          .map((m) => ModelStat.fromJson(m as Map<String, dynamic>))
-          .toList(),
-    );
-  }
 }

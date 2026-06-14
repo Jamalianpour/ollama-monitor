@@ -20,15 +20,10 @@ void main() async {
         ChangeNotifierProxyProvider<AuthService, MonitorService>(
           create: (_) => MonitorService(),
           update: (_, auth, monitor) {
-            if (auth.isLoggedIn && monitor != null) {
-              // Sync connection config whenever auth state changes
-              monitor.configure(
-                host: auth.host,
-                port: auth.port,
-                token: auth.token,
-              );
-            }
-            return monitor ?? MonitorService();
+            final m = monitor ?? MonitorService();
+            // Pass authenticated backends; empty list disconnects everything on logout.
+            m.configure(backends: auth.isLoggedIn ? auth.allBackends : []);
+            return m;
           },
         ),
       ],
@@ -46,9 +41,9 @@ class OllamaMonitorApp extends StatelessWidget {
       title: 'Ollama Monitor',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.dark(
+        colorScheme: const ColorScheme.dark(
           primary: Colors.deepPurpleAccent,
-          surface: const Color(0xFF161B22),
+          surface: Color(0xFF161B22),
         ),
         scaffoldBackgroundColor: const Color(0xFF0D1117),
         cardTheme: const CardThemeData(

@@ -6,13 +6,18 @@ from fastapi.responses import JSONResponse
 
 import database as db
 from auth import require_auth
-from config import LOG_PATHS, OLLAMA_BASE
+from config import LOG_PATHS, OLLAMA_BASE, SERVERS
 from metrics import get_system_metrics
 from ollama import ollama_get
 from state import log_lines, recent_requests
 from websocket import broadcast
 
 router = APIRouter(tags=["monitor"])
+
+
+@router.get("/api/servers")
+async def list_servers(_: str = Depends(require_auth)):
+    return {"servers": [{"id": s["id"], "name": s["name"], "url": s["url"]} for s in SERVERS]}
 
 
 @router.get("/api/health")

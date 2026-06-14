@@ -1,5 +1,17 @@
 // Data models for Ollama Monitor
 
+class ServerInfo {
+  final String id;
+  final String name;
+
+  const ServerInfo({required this.id, required this.name});
+
+  factory ServerInfo.fromJson(Map<String, dynamic> j) => ServerInfo(
+        id:   j['id']   as String? ?? 'default',
+        name: j['name'] as String? ?? 'Server',
+      );
+}
+
 class GpuMetric {
   final int index;
   final String name;
@@ -96,18 +108,19 @@ class RunningModel {
 class RequestRecord {
   final String ts;
   final String model;
+  final String serverId;
   final int? durationMs;
   final int? tokens;
   final bool error;
-  // Parsed from llama.cpp slot print_timing lines
-  final double? tgTps;        // actual generation speed (t/s)
-  final int? promptTokens;    // prompt token count
-  final int? evalTokens;      // generated token count
-  final double? evalTps;      // generation tokens/s (from eval time line)
+  final double? tgTps;
+  final int? promptTokens;
+  final int? evalTokens;
+  final double? evalTps;
 
   RequestRecord({
     required this.ts,
     required this.model,
+    this.serverId = 'default',
     this.durationMs,
     this.tokens,
     this.error = false,
@@ -118,21 +131,21 @@ class RequestRecord {
   });
 
   factory RequestRecord.fromJson(Map<String, dynamic> j) => RequestRecord(
-        ts: j['ts'] ?? '',
-        model: j['model'] ?? 'unknown',
-        durationMs: j['duration_ms'],
-        tokens: j['tokens'],
-        error: j['error'] == true,
-        tgTps: j['tg_tps'] != null ? (j['tg_tps'] as num).toDouble() : null,
+        ts:           j['ts']    ?? '',
+        model:        j['model'] ?? 'unknown',
+        serverId:     j['server_id'] as String? ?? 'default',
+        durationMs:   j['duration_ms'],
+        tokens:       j['tokens'],
+        error:        j['error'] == true,
+        tgTps:        j['tg_tps']   != null ? (j['tg_tps']   as num).toDouble() : null,
         promptTokens: j['prompt_tokens'],
-        evalTokens: j['eval_tokens'],
-        evalTps: j['eval_tps'] != null ? (j['eval_tps'] as num).toDouble() : null,
+        evalTokens:   j['eval_tokens'],
+        evalTps:      j['eval_tps']  != null ? (j['eval_tps']  as num).toDouble() : null,
       );
 
-  // Prefer the llama.cpp-reported generation speed; fall back to derived value.
   double? get tokensPerSecond =>
       tgTps ??
-      (evalTps) ??
+      evalTps ??
       ((tokens != null && durationMs != null && durationMs! > 0)
           ? tokens! / (durationMs! / 1000)
           : null);
@@ -141,21 +154,24 @@ class RequestRecord {
 class LogLine {
   final String ts;
   final String text;
-  final String source; // 'server' | 'app'
-  final String level;  // 'info' | 'warn' | 'error' | 'debug'
+  final String source;   // 'server' | 'app'
+  final String level;    // 'info' | 'warn' | 'error' | 'debug'
+  final String serverId;
 
   LogLine({
     required this.ts,
     required this.text,
-    this.source = 'server',
-    this.level = 'info',
+    this.source   = 'server',
+    this.level    = 'info',
+    this.serverId = 'default',
   });
 
   factory LogLine.fromJson(Map<String, dynamic> j) => LogLine(
-        ts:     j['ts']     ?? '',
-        text:   j['text']   ?? '',
-        source: j['source'] ?? 'server',
-        level:  j['level']  ?? 'info',
+        ts:       j['ts']        ?? '',
+        text:     j['text']      ?? '',
+        source:   j['source']    ?? 'server',
+        level:    j['level']     ?? 'info',
+        serverId: j['server_id'] as String? ?? 'default',
       );
 
   bool get isError => level == 'error';

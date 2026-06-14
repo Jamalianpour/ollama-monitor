@@ -15,11 +15,10 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _formKey   = GlobalKey<FormState>();
-  final _pwCtrl    = TextEditingController();
-  final _pw2Ctrl   = TextEditingController();
-  final _hostCtrl  = TextEditingController();
-  final _portCtrl  = TextEditingController();
+  final _formKey  = GlobalKey<FormState>();
+  final _pwCtrl   = TextEditingController();
+  final _pw2Ctrl  = TextEditingController();
+  final _urlCtrl  = TextEditingController();
   bool _obscure    = true;
   bool _loading    = false;
   bool _showConfig = false;
@@ -27,17 +26,14 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
-    final auth = context.read<AuthService>();
-    _hostCtrl.text = auth.host;
-    _portCtrl.text = auth.port.toString();
+    _urlCtrl.text = context.read<AuthService>().primaryUrl;
   }
 
   @override
   void dispose() {
     _pwCtrl.dispose();
     _pw2Ctrl.dispose();
-    _hostCtrl.dispose();
-    _portCtrl.dispose();
+    _urlCtrl.dispose();
     super.dispose();
   }
 
@@ -64,9 +60,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _applyConfig() async {
-    final host = _hostCtrl.text.trim();
-    final port = int.tryParse(_portCtrl.text.trim()) ?? 12434;
-    await context.read<AuthService>().configureBackend(host, port);
+    final url = _urlCtrl.text.trim();
+    if (url.isEmpty) return;
+    await context.read<AuthService>().configurePrimaryUrl(url);
     if (mounted) setState(() => _showConfig = false);
   }
 
@@ -221,7 +217,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   icon: const Icon(Icons.settings_ethernet,
                       size: 16, color: Colors.white38),
                   label: Text(
-                    '${auth.host}:${auth.port}',
+                    auth.primaryUrl,
                     style: const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
                   onPressed: () =>
@@ -240,32 +236,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: TextField(
-                                  controller: _hostCtrl,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 13),
-                                  decoration: const InputDecoration(
-                                      labelText: 'Host',
-                                      isDense: true),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: _portCtrl,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 13),
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                      labelText: 'Port',
-                                      isDense: true),
-                                ),
-                              ),
-                            ],
+                          TextField(
+                            controller: _urlCtrl,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 13),
+                            decoration: const InputDecoration(
+                                labelText: 'Backend URL',
+                                hintText: 'http://192.168.1.10:8765',
+                                isDense: true),
                           ),
                           const SizedBox(height: 12),
                           SizedBox(

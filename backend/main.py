@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import database as db
-from config import LOG_PATHS
+from config import LOG_PATHS, SERVERS
 from logs import _make_entry, tail_log_file, tail_log_journald
 from poller import poller
 from routers import auth, history, monitor, ws
@@ -39,15 +39,19 @@ async def startup():
     for entry in reversed(db.get_log_history(hours=24, limit=200)):
         log_lines.append({"ts": entry["ts"], "text": entry["text"],
                           "source": entry.get("source", "server"),
-                          "level": entry.get("level", "info")})
+                          "level": entry.get("level", "info"),
+                          "server_id": entry.get("server_id", "default")})
     asyncio.create_task(poller())
+    # Log files are local so we associate them with the first (local) server
+    local_server_id = SERVERS[0]["id"]
     if LOG_PATHS:
         for log_path, label in LOG_PATHS:
-            asyncio.create_task(tail_log_file(log_path, label))
+            asyncio.create_task(tail_log_file(log_path, label, local_server_id))
     elif platform.system() == "Linux":
-        asyncio.create_task(tail_log_journald())
+        asyncio.create_task(tail_log_journald(local_server_id))
     else:
-        entry = _make_entry("[monitor] No Ollama log files found. Set OLLAMA_APP_LOG or OLLAMA_SERVER_LOG.", "server")
+        entry = _make_entry("[monitor] No Ollama log files found. Set OLLAMA_APP_LOG or OLLAMA_SERVER_LOG.",
+                            "server", local_server_id)
         log_lines.append(entry)
         db.insert_log(entry)
 

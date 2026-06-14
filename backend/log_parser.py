@@ -52,10 +52,18 @@ _RELEASE_RE = re.compile(
     r'slot\s+release:.*?task\s+(\d+).*?n_tokens\s*=\s*(\d+)'
 )
 
-# ── Internal timing buffer ─────────────────────────────────────────────────────
+# ── Per-server timing buffers ─────────────────────────────────────────────────
 
-_buf: dict[int, dict] = {}   # task_id → accumulated timing fields
-_done: list[int] = []        # task_ids whose timing is complete (total time seen), ordered by arrival
+_bufs: dict[str, dict[int, dict]] = {}   # server_id → (task_id → timing fields)
+_dones: dict[str, list[int]] = {}        # server_id → ordered list of completed task_ids
+
+
+def _buf(server_id: str) -> dict[int, dict]:
+    return _bufs.setdefault(server_id, {})
+
+
+def _done(server_id: str) -> list[int]:
+    return _dones.setdefault(server_id, [])
 
 
 def _parse_duration_ms(s: str) -> Optional[float]:
@@ -73,18 +81,21 @@ def _parse_duration_ms(s: str) -> Optional[float]:
     return val * 1000.0  # seconds → ms
 
 
-def update_timing_buffer(text: str) -> None:
-    """Update internal buffer from a single server.log line."""
+def update_timing_buffer(text: str, server_id: str = "default") -> None:
+    """Update per-server buffer from a single server.log line."""
+    buf  = _buf(server_id)
+    done = _done(server_id)
+
     m = _TG_RE.search(text)
     if m:
         tid = int(m.group(1))
-        _buf.setdefault(tid, {}).update(n_decoded=int(m.group(2)), tg_tps=float(m.group(3)))
+        buf.setdefault(tid, {}).update(n_decoded=int(m.group(2)), tg_tps=float(m.group(3)))
         return
 
     m = _PROMPT_RE.search(text)
     if m:
         tid = int(m.group(1))
-        _buf.setdefault(tid, {}).update(
+        buf.setdefault(tid, {}).update(
             prompt_eval_ms=float(m.group(2)),
             prompt_tokens=int(m.group(3)),
             prompt_tps=float(m.group(4)),
@@ -94,7 +105,7 @@ def update_timing_buffer(text: str) -> None:
     m = _EVAL_RE.search(text)
     if m:
         tid = int(m.group(1))
-        _buf.setdefault(tid, {}).update(
+        buf.setdefault(tid, {}).update(
             eval_ms=float(m.group(2)),
             eval_tokens=int(m.group(3)),
             eval_tps=float(m.group(4)),
@@ -104,40 +115,42 @@ def update_timing_buffer(text: str) -> None:
     m = _TOTAL_RE.search(text)
     if m:
         tid = int(m.group(1))
-        _buf.setdefault(tid, {}).update(
+        buf.setdefault(tid, {}).update(
             total_ms=float(m.group(2)),
             total_tokens=int(m.group(3)),
         )
-        if tid not in _done:
-            _done.append(tid)
-            if len(_done) > 20:
-                _buf.pop(_done.pop(0), None)
+        if tid not in done:
+            done.append(tid)
+            if len(done) > 20:
+                buf.pop(done.pop(0), None)
         return
 
     m = _RELEASE_RE.search(text)
     if m:
         tid = int(m.group(1))
-        if tid in _buf:
-            _buf[tid]['n_tokens'] = int(m.group(2))
+        entry = buf.get(tid)
+        if entry is not None:
+            entry['n_tokens'] = int(m.group(2))
 
 
-def _pop_latest_timing() -> dict:
+def _pop_latest_timing(server_id: str = "default") -> dict:
     """Return and remove the most recently completed task's timing data."""
-    if not _done:
+    done = _done(server_id)
+    if not done:
         return {}
-    tid = _done.pop()
-    return _buf.pop(tid, {})
+    tid = done.pop()
+    return _buf(server_id).pop(tid, {})
 
 
-def _infer_model() -> str:
-    """Best-effort model name from the current running-models state."""
-    models = state.running_models
+def _infer_model(server_id: str = "default") -> str:
+    """Best-effort model name from the server's running-models state."""
+    models = state.server_running_models.get(server_id) or state.running_models
     if len(models) == 1:
         return models[0].get('name', 'unknown')
     return 'unknown'
 
 
-def parse_gin_request(text: str) -> Optional[dict]:
+def parse_gin_request(text: str, server_id: str = "default") -> Optional[dict]:
     """
     Parse a GIN log line. If it represents a completed inference request,
     return a request record dict (ready for db.insert_request + broadcast).
@@ -154,7 +167,7 @@ def parse_gin_request(text: str) -> Optional[dict]:
 
     duration_ms = _parse_duration_ms(duration_raw)
     status_code = int(status)
-    timing = _pop_latest_timing()
+    timing = _pop_latest_timing(server_id)
 
     tokens = (
         timing.pop('total_tokens', None)
@@ -164,11 +177,12 @@ def parse_gin_request(text: str) -> Optional[dict]:
 
     return {
         "ts":          datetime.now(timezone.utc).isoformat(),
-        "model":       _infer_model(),
+        "model":       _infer_model(server_id),
         "duration_ms": int(duration_ms) if duration_ms is not None else None,
         "tokens":      tokens,
         "error":       status_code >= 400,
         "path":        path,
         "status":      status_code,
+        "server_id":   server_id,
         **timing,  # tg_tps, eval_ms, eval_tokens, eval_tps, prompt_eval_ms, prompt_tokens, prompt_tps
     }

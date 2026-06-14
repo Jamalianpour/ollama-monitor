@@ -43,7 +43,7 @@ class HistoryChart extends StatelessWidget {
                           show: true,
                           drawVerticalLine: false,
                           horizontalInterval: 25,
-                          getDrawingHorizontalLine: (_) => FlLine(
+                          getDrawingHorizontalLine: (_) => const FlLine(
                             color: Colors.white10,
                             strokeWidth: 1,
                           ),
@@ -78,7 +78,7 @@ class HistoryChart extends StatelessWidget {
                             dotData: const FlDotData(show: false),
                             belowBarData: BarAreaData(
                               show: true,
-                              color: color.withOpacity(0.15),
+                              color: color.withValues(alpha: 0.15),
                             ),
                           ),
                         ],
