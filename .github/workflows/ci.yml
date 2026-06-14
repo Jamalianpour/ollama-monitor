@@ -48,16 +48,16 @@ jobs:
           cache: true
 
       - name: Get dependencies
-        working-directory: frontend
+        working-directory: ollama_monitor_app
         run: flutter pub get
 
       - name: Build web
-        working-directory: frontend
+        working-directory: ollama_monitor_app
         run: flutter build web --release
 
       - name: Upload web build
         uses: actions/upload-artifact@v4
         with:
           name: flutter-web-build
-          path: frontend/build/web/
+          path: ollama_monitor_app/build/web/
           retention-days: 7
