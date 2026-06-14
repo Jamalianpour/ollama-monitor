@@ -54,18 +54,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       elevation: 0,
       title: Row(
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.deepPurple.shade700,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(Icons.smart_toy, color: Colors.white, size: 16),
-          ),
+          Image.asset('assets/images/om_logo.png', width: 38, height: 38),
           const SizedBox(width: 10),
-          const Text('Ollama Monitor',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const Text(
+            'Ollama Monitor',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
       actions: [
@@ -78,20 +72,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               underline: const SizedBox(),
               dropdownColor: const Color(0xFF1C2128),
               style: const TextStyle(color: Colors.white70, fontSize: 12),
-              icon: const Icon(Icons.dns_outlined, size: 16, color: Colors.white54),
+              icon: const Icon(
+                Icons.dns_outlined,
+                size: 16,
+                color: Colors.white54,
+              ),
               items: svc.servers
-                  .map((s) => DropdownMenuItem(
-                        value: s.id,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.dns_outlined,
-                                size: 14, color: Colors.white38),
-                            const SizedBox(width: 6),
-                            Text(s.name),
-                          ],
-                        ),
-                      ))
+                  .map(
+                    (s) => DropdownMenuItem(
+                      value: s.id,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.dns_outlined,
+                            size: 14,
+                            color: Colors.white38,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(s.name),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (id) {
                 if (id != null) svc.selectServer(id);
@@ -103,8 +106,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Chip(
             avatar: const Icon(Icons.info_outline, size: 14),
-            label: Text('v${svc.ollamaVersion}',
-                style: const TextStyle(fontSize: 11)),
+            label: Text(
+              'v${svc.ollamaVersion}',
+              style: const TextStyle(fontSize: 11),
+            ),
             backgroundColor: Colors.white10,
             side: BorderSide.none,
             padding: EdgeInsets.zero,
@@ -140,7 +145,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
           onPressed: () => svc.loadHistory(hours: _historyHours),
           tooltip: 'Refresh history',
         ),
@@ -158,8 +164,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(svc.statusMessage,
-                  style: const TextStyle(fontSize: 11, color: Colors.white54)),
+              Text(
+                svc.statusMessage,
+                style: const TextStyle(fontSize: 11, color: Colors.white54),
+              ),
             ],
           ),
         ),
@@ -171,8 +179,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onSelected: (value) async {
             if (value == 'change_password') {
               showDialog(
-                  context: context,
-                  builder: (_) => const ChangePasswordDialog());
+                context: context,
+                builder: (_) => const ChangePasswordDialog(),
+              );
             } else if (value == 'settings') {
               _showManageServers(context);
             } else if (value == 'logout') {
@@ -181,27 +190,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
           itemBuilder: (_) => const [
             PopupMenuItem(
-                value: 'change_password',
-                child: Row(children: [
-                  Icon(Icons.lock_reset_outlined, size: 16, color: Colors.white70),
+              value: 'change_password',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_reset_outlined,
+                    size: 16,
+                    color: Colors.white70,
+                  ),
                   SizedBox(width: 8),
                   Text('Change Password'),
-                ])),
+                ],
+              ),
+            ),
             PopupMenuItem(
-                value: 'settings',
-                child: Row(children: [
+              value: 'settings',
+              child: Row(
+                children: [
                   Icon(Icons.dns_outlined, size: 16, color: Colors.white70),
                   SizedBox(width: 8),
                   Text('Manage Servers'),
-                ])),
+                ],
+              ),
+            ),
             PopupMenuDivider(),
             PopupMenuItem(
-                value: 'logout',
-                child: Row(children: [
+              value: 'logout',
+              child: Row(
+                children: [
                   Icon(Icons.logout, size: 16, color: Colors.redAccent),
                   SizedBox(width: 8),
                   Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
-                ])),
+                ],
+              ),
+            ),
           ],
         ),
       ],
@@ -210,8 +232,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ── Wide layout (desktop ≥960px) ───────────────────────────────────────────
 
-  Widget _buildWide(BuildContext context, MonitorService svc,
-      MonitorSnapshot? snap, SystemMetrics? sys) {
+  Widget _buildWide(
+    BuildContext context,
+    MonitorService svc,
+    MonitorSnapshot? snap,
+    SystemMetrics? sys,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -230,38 +256,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     children: [
                       Expanded(
-                          child: GaugeCard(
-                              label: 'CPU',
-                              value: sys?.cpuPct ?? 0,
-                              subtitle: 'Utilization',
-                              color: Colors.blueAccent)),
+                        child: GaugeCard(
+                          label: 'CPU',
+                          value: sys?.cpuPct ?? 0,
+                          subtitle: 'Utilization',
+                          color: Colors.blueAccent,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                          child: GaugeCard(
-                              label: 'RAM',
-                              value: sys?.ramPct ?? 0,
-                              subtitle: sys != null
-                                  ? '${sys.ramUsedGb.toStringAsFixed(1)} / ${sys.ramTotalGb.toStringAsFixed(1)} GB'
-                                  : '–',
-                              color: Colors.cyanAccent)),
+                        child: GaugeCard(
+                          label: 'RAM',
+                          value: sys?.ramPct ?? 0,
+                          subtitle: sys != null
+                              ? '${sys.ramUsedGb.toStringAsFixed(1)} / ${sys.ramTotalGb.toStringAsFixed(1)} GB'
+                              : '–',
+                          color: Colors.cyanAccent,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                          child: GaugeCard(
-                              label: 'Disk',
-                              value: sys?.diskPct ?? 0,
-                              subtitle: sys != null
-                                  ? '${sys.diskUsedGb.toStringAsFixed(0)} / ${sys.diskTotalGb.toStringAsFixed(0)} GB'
-                                  : '–',
-                              color: Colors.tealAccent)),
+                        child: GaugeCard(
+                          label: 'Disk',
+                          value: sys?.diskPct ?? 0,
+                          subtitle: sys != null
+                              ? '${sys.diskUsedGb.toStringAsFixed(0)} / ${sys.diskTotalGb.toStringAsFixed(0)} GB'
+                              : '–',
+                          color: Colors.tealAccent,
+                        ),
+                      ),
                     ],
                   ),
                   if (sys != null && sys.gpus.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     const _SectionHeader('GPU'),
                     const SizedBox(height: 8),
-                    ...sys.gpus.map((g) => Padding(
+                    ...sys.gpus.map(
+                      (g) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: GpuCard(gpu: g))),
+                        child: GpuCard(gpu: g),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -273,18 +308,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionHeader(
-                      'History  (${svc.cpuHistory.length} samples)'),
+                  _SectionHeader('History  (${svc.cpuHistory.length} samples)'),
                   const SizedBox(height: 8),
                   HistoryChart(
-                      label: 'CPU %',
-                      data: svc.cpuHistory,
-                      color: Colors.blueAccent),
+                    label: 'CPU %',
+                    data: svc.cpuHistory,
+                    color: Colors.blueAccent,
+                  ),
                   const SizedBox(height: 8),
                   HistoryChart(
-                      label: 'RAM %',
-                      data: svc.ramHistory,
-                      color: Colors.cyanAccent),
+                    label: 'RAM %',
+                    data: svc.ramHistory,
+                    color: Colors.cyanAccent,
+                  ),
                 ],
               ),
             ),
@@ -297,12 +333,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-                flex: 4,
-                child: RunningModelsCard(models: snap?.runningModels ?? [])),
+              flex: 4,
+              child: RunningModelsCard(models: snap?.runningModels ?? []),
+            ),
             const SizedBox(width: 16),
             Expanded(
-                flex: 6,
-                child: StatsCard(stats: svc.statsFor(_historyHours))),
+              flex: 6,
+              child: StatsCard(stats: svc.statsFor(_historyHours)),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -324,8 +362,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ── Narrow layout (mobile / small window) ─────────────────────────────────
 
-  Widget _buildNarrow(BuildContext context, MonitorService svc,
-      MonitorSnapshot? snap, SystemMetrics? sys) {
+  Widget _buildNarrow(
+    BuildContext context,
+    MonitorService svc,
+    MonitorSnapshot? snap,
+    SystemMetrics? sys,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -336,30 +378,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           runSpacing: 12,
           children: [
             SizedBox(
-                width: 160,
-                child: GaugeCard(
-                    label: 'CPU',
-                    value: sys?.cpuPct ?? 0,
-                    subtitle: 'Utilization',
-                    color: Colors.blueAccent)),
+              width: 160,
+              child: GaugeCard(
+                label: 'CPU',
+                value: sys?.cpuPct ?? 0,
+                subtitle: 'Utilization',
+                color: Colors.blueAccent,
+              ),
+            ),
             SizedBox(
-                width: 160,
-                child: GaugeCard(
-                    label: 'RAM',
-                    value: sys?.ramPct ?? 0,
-                    subtitle: sys != null
-                        ? '${sys.ramUsedGb.toStringAsFixed(1)} / ${sys.ramTotalGb.toStringAsFixed(1)} GB'
-                        : '–',
-                    color: Colors.cyanAccent)),
+              width: 160,
+              child: GaugeCard(
+                label: 'RAM',
+                value: sys?.ramPct ?? 0,
+                subtitle: sys != null
+                    ? '${sys.ramUsedGb.toStringAsFixed(1)} / ${sys.ramTotalGb.toStringAsFixed(1)} GB'
+                    : '–',
+                color: Colors.cyanAccent,
+              ),
+            ),
             SizedBox(
-                width: 160,
-                child: GaugeCard(
-                    label: 'Disk',
-                    value: sys?.diskPct ?? 0,
-                    subtitle: sys != null
-                        ? '${sys.diskUsedGb.toStringAsFixed(0)} / ${sys.diskTotalGb.toStringAsFixed(0)} GB'
-                        : '–',
-                    color: Colors.tealAccent)),
+              width: 160,
+              child: GaugeCard(
+                label: 'Disk',
+                value: sys?.diskPct ?? 0,
+                subtitle: sys != null
+                    ? '${sys.diskUsedGb.toStringAsFixed(0)} / ${sys.diskTotalGb.toStringAsFixed(0)} GB'
+                    : '–',
+                color: Colors.tealAccent,
+              ),
+            ),
           ],
         ),
         if (sys != null && sys.gpus.isNotEmpty) ...[
@@ -380,16 +428,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           children: [
             Expanded(
-                child: HistoryChart(
-                    label: 'CPU %',
-                    data: svc.cpuHistory,
-                    color: Colors.blueAccent)),
+              child: HistoryChart(
+                label: 'CPU %',
+                data: svc.cpuHistory,
+                color: Colors.blueAccent,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-                child: HistoryChart(
-                    label: 'RAM %',
-                    data: svc.ramHistory,
-                    color: Colors.cyanAccent)),
+              child: HistoryChart(
+                label: 'RAM %',
+                data: svc.ramHistory,
+                color: Colors.cyanAccent,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -414,10 +466,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ── Manage Servers dialog ──────────────────────────────────────────────────
 
   void _showManageServers(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const _ManageServersDialog(),
-    );
+    showDialog(context: context, builder: (_) => const _ManageServersDialog());
   }
 }
 
@@ -458,9 +507,9 @@ class _ManageServersDialog extends StatefulWidget {
 
 class _ManageServersDialogState extends State<_ManageServersDialog> {
   final _nameCtrl = TextEditingController();
-  final _urlCtrl  = TextEditingController(text: 'http://');
-  final _pwCtrl   = TextEditingController();
-  bool _adding  = false;
+  final _urlCtrl = TextEditingController(text: 'http://');
+  final _pwCtrl = TextEditingController();
+  bool _adding = false;
   bool _loading = false;
   String _addError = '';
 
@@ -474,14 +523,19 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
 
   Future<void> _addServer() async {
     final auth = context.read<AuthService>();
-    setState(() { _loading = true; _addError = ''; });
+    setState(() {
+      _loading = true;
+      _addError = '';
+    });
     final ok = await auth.addBackend(
       _nameCtrl.text.trim(),
       _urlCtrl.text.trim(),
       _pwCtrl.text,
     );
     if (!mounted) return;
-    setState(() { _loading = false; });
+    setState(() {
+      _loading = false;
+    });
     if (ok) {
       _nameCtrl.clear();
       _urlCtrl.text = 'http://';
@@ -494,7 +548,7 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final auth     = context.watch<AuthService>();
+    final auth = context.watch<AuthService>();
     final backends = auth.backends;
 
     return AlertDialog(
@@ -512,7 +566,10 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(8),
@@ -520,43 +577,63 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.dns_outlined,
-                          size: 16,
-                          color: b.token.isNotEmpty
-                              ? Colors.greenAccent
-                              : Colors.redAccent),
+                      Icon(
+                        Icons.dns_outlined,
+                        size: 16,
+                        color: b.token.isNotEmpty
+                            ? Colors.greenAccent
+                            : Colors.redAccent,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(b.name,
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600)),
-                            Text(b.url,
-                                style: const TextStyle(
-                                    fontSize: 11, color: Colors.white38)),
+                            Text(
+                              b.name,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              b.url,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white38,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       if (isPrimary)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurpleAccent.withValues(alpha: 0.2),
+                            color: Colors.deepPurpleAccent.withValues(
+                              alpha: 0.2,
+                            ),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('PRIMARY',
-                              style: TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.deepPurpleAccent,
-                                  fontWeight: FontWeight.w700)),
+                          child: const Text(
+                            'PRIMARY',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.deepPurpleAccent,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         )
                       else
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline,
-                              size: 18, color: Colors.redAccent),
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            size: 18,
+                            color: Colors.redAccent,
+                          ),
                           onPressed: () => auth.removeBackend(b.id),
                           tooltip: 'Remove',
                           padding: EdgeInsets.zero,
@@ -580,26 +657,33 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
             else ...[
               const Divider(color: Colors.white12),
               const SizedBox(height: 4),
-              const Text('Add Server',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white54)),
+              const Text(
+                'Add Server',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white54,
+                ),
+              ),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameCtrl,
                 style: const TextStyle(fontSize: 13, color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Name', hintText: 'GPU Server 2', isDense: true),
+                  labelText: 'Name',
+                  hintText: 'GPU Server 2',
+                  isDense: true,
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _urlCtrl,
                 style: const TextStyle(fontSize: 13, color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Backend URL',
-                    hintText: 'http://192.168.1.11:8765',
-                    isDense: true),
+                  labelText: 'Backend URL',
+                  hintText: 'http://192.168.1.11:8765',
+                  isDense: true,
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -607,19 +691,25 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
                 obscureText: true,
                 style: const TextStyle(fontSize: 13, color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Password', isDense: true),
+                  labelText: 'Password',
+                  isDense: true,
+                ),
               ),
               if (_addError.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(_addError,
-                    style: const TextStyle(
-                        color: Colors.redAccent, fontSize: 12)),
+                Text(
+                  _addError,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
               ],
               const SizedBox(height: 10),
               Row(
                 children: [
                   TextButton(
-                    onPressed: () => setState(() { _adding = false; _addError = ''; }),
+                    onPressed: () => setState(() {
+                      _adding = false;
+                      _addError = '';
+                    }),
                     child: const Text('Cancel'),
                   ),
                   const Spacer(),
@@ -630,7 +720,10 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
                             width: 14,
                             height: 14,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text('Connect'),
                   ),
                 ],
@@ -641,8 +734,9 @@ class _ManageServersDialogState extends State<_ManageServersDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
       ],
     );
   }
