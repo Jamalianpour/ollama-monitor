@@ -17,8 +17,8 @@ class AuthService extends ChangeNotifier {
   // ── Public getters ──────────────────────────────────────────────────────────
 
   AuthState get state => _state;
-  String    get error => _error;
-  bool      get isLoggedIn => _state == AuthState.loggedIn;
+  String get error => _error;
+  bool get isLoggedIn => _state == AuthState.loggedIn;
 
   /// All backends that have valid tokens (ready for MonitorService to use).
   List<BackendEntry> get allBackends =>
@@ -30,11 +30,11 @@ class AuthService extends ChangeNotifier {
   BackendEntry? get _primary => _backends.isNotEmpty ? _backends.first : null;
 
   String get primaryUrl => _primary?.url ?? 'http://localhost:12434';
-  String get baseUrl    => primaryUrl;          // backward compat alias
+  String get baseUrl => primaryUrl; // backward compat alias
 
   // Parsed from primaryUrl for backward compat
   String get host => Uri.parse(primaryUrl).host;
-  int    get port => Uri.parse(primaryUrl).port;
+  int get port => Uri.parse(primaryUrl).port;
   String get token => _primary?.token ?? '';
 
   // ── Init ────────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ class AuthService extends ChangeNotifier {
         return;
       }
 
-      final data        = json.decode(resp.body) as Map<String, dynamic>;
+      final data = json.decode(resp.body) as Map<String, dynamic>;
       final passwordSet = data['password_set'] as bool? ?? false;
 
       if (!passwordSet) {
@@ -81,10 +81,12 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> _validateToken(String url, String tok) async {
     try {
-      final resp = await http.get(
-        Uri.parse('$url/api/health'),
-        headers: {'Authorization': 'Bearer $tok'},
-      ).timeout(const Duration(seconds: 5));
+      final resp = await http
+          .get(
+            Uri.parse('$url/api/health'),
+            headers: {'Authorization': 'Bearer $tok'},
+          )
+          .timeout(const Duration(seconds: 5));
       return resp.statusCode == 200;
     } catch (_) {
       return false;
@@ -101,14 +103,16 @@ class AuthService extends ChangeNotifier {
   Future<bool> setupPassword(String password) async {
     _error = '';
     try {
-      final resp = await http.post(
-        Uri.parse('$primaryUrl/api/auth/setup'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'password': password}),
-      ).timeout(const Duration(seconds: 10));
+      final resp = await http
+          .post(
+            Uri.parse('$primaryUrl/api/auth/setup'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (resp.statusCode == 200) {
-        final data  = json.decode(resp.body) as Map<String, dynamic>;
+        final data = json.decode(resp.body) as Map<String, dynamic>;
         final newTok = data['token'] as String;
         _backends = [
           if (_backends.isNotEmpty) _backends.first.copyWith(token: newTok),
@@ -134,16 +138,18 @@ class AuthService extends ChangeNotifier {
   Future<bool> login(String password) async {
     _error = '';
     bool primaryOk = false;
-    final updated  = <BackendEntry>[];
+    final updated = <BackendEntry>[];
 
     for (var i = 0; i < _backends.length; i++) {
       final backend = _backends[i];
       try {
-        final resp = await http.post(
-          Uri.parse('${backend.url}/api/auth/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({'password': password}),
-        ).timeout(const Duration(seconds: 10));
+        final resp = await http
+            .post(
+              Uri.parse('${backend.url}/api/auth/login'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({'password': password}),
+            )
+            .timeout(const Duration(seconds: 10));
 
         if (resp.statusCode == 200) {
           final data = json.decode(resp.body) as Map<String, dynamic>;
@@ -174,13 +180,19 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     // Best-effort logout on all backends
-    await Future.wait(_backends
-        .where((b) => b.token.isNotEmpty)
-        .map((b) => http
-            .post(Uri.parse('${b.url}/api/auth/logout'),
-                headers: {'Authorization': 'Bearer ${b.token}'})
-            .timeout(const Duration(seconds: 3))
-            .catchError((_) => http.Response('', 503))));
+    await Future.wait(
+      _backends
+          .where((b) => b.token.isNotEmpty)
+          .map(
+            (b) => http
+                .post(
+                  Uri.parse('${b.url}/api/auth/logout'),
+                  headers: {'Authorization': 'Bearer ${b.token}'},
+                )
+                .timeout(const Duration(seconds: 3))
+                .catchError((_) => http.Response('', 503)),
+          ),
+    );
     _clearAllTokens();
     _state = AuthState.loggedOut;
     notifyListeners();
@@ -191,17 +203,22 @@ class AuthService extends ChangeNotifier {
   Future<bool> changePassword(String current, String newPass) async {
     _error = '';
     try {
-      final resp = await http.post(
-        Uri.parse('$primaryUrl/api/auth/change-password'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({'current_password': current, 'new_password': newPass}),
-      ).timeout(const Duration(seconds: 10));
+      final resp = await http
+          .post(
+            Uri.parse('$primaryUrl/api/auth/change-password'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: json.encode({
+              'current_password': current,
+              'new_password': newPass,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (resp.statusCode == 200) {
-        final data    = json.decode(resp.body) as Map<String, dynamic>;
+        final data = json.decode(resp.body) as Map<String, dynamic>;
         final newToken = data['token'] as String;
         _backends = [
           if (_backends.isNotEmpty) _backends.first.copyWith(token: newToken),
@@ -228,19 +245,25 @@ class AuthService extends ChangeNotifier {
     _error = '';
     final cleanUrl = url.trimRight().replaceAll(RegExp(r'/$'), '');
     try {
-      final resp = await http.post(
-        Uri.parse('$cleanUrl/api/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'password': password}),
-      ).timeout(const Duration(seconds: 10));
+      final resp = await http
+          .post(
+            Uri.parse('$cleanUrl/api/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as Map<String, dynamic>;
-        final id   = 'b${DateTime.now().millisecondsSinceEpoch}';
-        _backends  = [
+        final id = 'b${DateTime.now().millisecondsSinceEpoch}';
+        _backends = [
           ..._backends,
           BackendEntry(
-              id: id, name: name, url: cleanUrl, token: data['token'] as String),
+            id: id,
+            name: name,
+            url: cleanUrl,
+            token: data['token'] as String,
+          ),
         ];
         await BackendEntry.saveAll(_backends);
         notifyListeners();
@@ -271,7 +294,11 @@ class AuthService extends ChangeNotifier {
       _backends = [BackendEntry(id: 'default', name: 'Default', url: cleanUrl)];
     } else {
       _backends = [
-        BackendEntry(id: _backends.first.id, name: _backends.first.name, url: cleanUrl),
+        BackendEntry(
+          id: _backends.first.id,
+          name: _backends.first.name,
+          url: cleanUrl,
+        ),
         ..._backends.skip(1),
       ];
     }

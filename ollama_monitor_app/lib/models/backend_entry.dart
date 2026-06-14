@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class BackendEntry {
   final String id;
   final String name;
-  final String url;    // e.g. http://192.168.1.10:8765
-  final String token;  // session token from this backend's /api/auth/login
+  final String url; // e.g. http://192.168.1.10:8765
+  final String token; // session token from this backend's /api/auth/login
 
   const BackendEntry({
     required this.id,
@@ -17,21 +17,25 @@ class BackendEntry {
   });
 
   BackendEntry copyWith({String? name, String? token}) => BackendEntry(
-        id:    id,
-        name:  name  ?? this.name,
-        url:   url,
-        token: token ?? this.token,
-      );
+    id: id,
+    name: name ?? this.name,
+    url: url,
+    token: token ?? this.token,
+  );
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'name': name, 'url': url, 'token': token};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'url': url,
+    'token': token,
+  };
 
   factory BackendEntry.fromJson(Map<String, dynamic> j) => BackendEntry(
-        id:    j['id']    as String? ?? '',
-        name:  j['name']  as String? ?? 'Server',
-        url:   j['url']   as String? ?? '',
-        token: j['token'] as String? ?? '',
-      );
+    id: j['id'] as String? ?? '',
+    name: j['name'] as String? ?? 'Server',
+    url: j['url'] as String? ?? '',
+    token: j['token'] as String? ?? '',
+  );
 
   // ── SharedPreferences helpers ──────────────────────────────────────────────
   static const _key = 'backends_v2';
@@ -46,18 +50,24 @@ class BackendEntry {
           .toList();
     }
     // Migrate from single-backend format (host + port + auth_token keys)
-    final host  = prefs.getString('backend_host') ?? 'localhost';
-    final port  = prefs.getInt('backend_port')    ?? 12434;
-    final token = prefs.getString('auth_token')   ?? '';
+    final host = prefs.getString('backend_host') ?? 'localhost';
+    final port = prefs.getInt('backend_port') ?? 12434;
+    final token = prefs.getString('auth_token') ?? '';
     return [
       BackendEntry(
-          id: 'default', name: 'Default', url: 'http://$host:$port', token: token),
+        id: 'default',
+        name: 'Default',
+        url: 'http://$host:$port',
+        token: token,
+      ),
     ];
   }
 
   static Future<void> saveAll(List<BackendEntry> backends) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        _key, json.encode(backends.map((b) => b.toJson()).toList()));
+      _key,
+      json.encode(backends.map((b) => b.toJson()).toList()),
+    );
   }
 }

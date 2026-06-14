@@ -21,23 +21,36 @@ class RequestTable extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
             child: Row(
               children: [
-                const Icon(Icons.swap_horiz, color: Colors.blueAccent, size: 18),
+                const Icon(
+                  Icons.swap_horiz,
+                  color: Colors.blueAccent,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
-                Text('Recent Requests',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: Colors.white70)),
+                Text(
+                  'Recent Requests',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+                ),
                 const Spacer(),
                 if (rows.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white10,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text('${rows.length}',
-                        style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                    child: Text(
+                      '${rows.length}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white54,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -50,29 +63,39 @@ class RequestTable extends StatelessWidget {
             child: Row(
               children: [
                 SizedBox(width: 16), // status dot column
-                SizedBox(
-                  width: 72,
-                  child: Text('TIME', style: _kHeaderStyle),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text('MODEL', style: _kHeaderStyle),
-                ),
+                SizedBox(width: 72, child: Text('TIME', style: _kHeaderStyle)),
+                Expanded(flex: 3, child: Text('MODEL', style: _kHeaderStyle)),
                 SizedBox(
                   width: 82,
-                  child: Text('DURATION', style: _kHeaderStyle, textAlign: TextAlign.right),
+                  child: Text(
+                    'DURATION',
+                    style: _kHeaderStyle,
+                    textAlign: TextAlign.right,
+                  ),
                 ),
                 SizedBox(
                   width: 110,
-                  child: Text('TOKENS', style: _kHeaderStyle, textAlign: TextAlign.right),
+                  child: Text(
+                    'TOKENS',
+                    style: _kHeaderStyle,
+                    textAlign: TextAlign.right,
+                  ),
                 ),
                 SizedBox(
                   width: 68,
-                  child: Text('TG/s', style: _kHeaderStyle, textAlign: TextAlign.right),
+                  child: Text(
+                    'TG/s',
+                    style: _kHeaderStyle,
+                    textAlign: TextAlign.right,
+                  ),
                 ),
                 SizedBox(
                   width: 48,
-                  child: Text('STATUS', style: _kHeaderStyle, textAlign: TextAlign.right),
+                  child: Text(
+                    'STATUS',
+                    style: _kHeaderStyle,
+                    textAlign: TextAlign.right,
+                  ),
                 ),
               ],
             ),
@@ -159,8 +182,9 @@ class _RequestRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ts = DateTime.tryParse(record.ts);
-    final timeStr =
-        ts != null ? DateFormat('HH:mm:ss').format(ts.toLocal()) : '–';
+    final timeStr = ts != null
+        ? DateFormat('HH:mm:ss').format(ts.toLocal())
+        : '–';
     final tps = record.tokensPerSecond;
 
     return Container(

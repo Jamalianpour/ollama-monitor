@@ -7,9 +7,9 @@ class ServerInfo {
   const ServerInfo({required this.id, required this.name});
 
   factory ServerInfo.fromJson(Map<String, dynamic> j) => ServerInfo(
-        id:   j['id']   as String? ?? 'default',
-        name: j['name'] as String? ?? 'Server',
-      );
+    id: j['id'] as String? ?? 'default',
+    name: j['name'] as String? ?? 'Server',
+  );
 }
 
 class GpuMetric {
@@ -32,16 +32,19 @@ class GpuMetric {
   });
 
   factory GpuMetric.fromJson(Map<String, dynamic> j) => GpuMetric(
-        index: j['index'] ?? 0,
-        name: j['name'] ?? 'GPU',
-        utilizationPct: (j['utilization_pct'] ?? 0).toDouble(),
-        memoryUsedMb: (j['memory_used_mb'] ?? 0).toDouble(),
-        memoryTotalMb: (j['memory_total_mb'] ?? 0).toDouble(),
-        temperatureC: j['temperature_c'] != null ? (j['temperature_c']).toDouble() : null,
-        vendor: j['vendor'] ?? 'unknown',
-      );
+    index: j['index'] ?? 0,
+    name: j['name'] ?? 'GPU',
+    utilizationPct: (j['utilization_pct'] ?? 0).toDouble(),
+    memoryUsedMb: (j['memory_used_mb'] ?? 0).toDouble(),
+    memoryTotalMb: (j['memory_total_mb'] ?? 0).toDouble(),
+    temperatureC: j['temperature_c'] != null
+        ? (j['temperature_c']).toDouble()
+        : null,
+    vendor: j['vendor'] ?? 'unknown',
+  );
 
-  double get memoryPct => memoryTotalMb > 0 ? memoryUsedMb / memoryTotalMb * 100 : 0;
+  double get memoryPct =>
+      memoryTotalMb > 0 ? memoryUsedMb / memoryTotalMb * 100 : 0;
 }
 
 class SystemMetrics {
@@ -66,15 +69,15 @@ class SystemMetrics {
   });
 
   factory SystemMetrics.fromJson(Map<String, dynamic> j) => SystemMetrics(
-        cpuPct: (j['cpu_pct'] ?? 0).toDouble(),
-        ramUsedGb: (j['ram_used_gb'] ?? 0).toDouble(),
-        ramTotalGb: (j['ram_total_gb'] ?? 0).toDouble(),
-        ramPct: (j['ram_pct'] ?? 0).toDouble(),
-        diskUsedGb: (j['disk_used_gb'] ?? 0).toDouble(),
-        diskTotalGb: (j['disk_total_gb'] ?? 0).toDouble(),
-        diskPct: (j['disk_pct'] ?? 0).toDouble(),
-        gpus: (j['gpus'] as List? ?? []).map((g) => GpuMetric.fromJson(g)).toList(),
-      );
+    cpuPct: (j['cpu_pct'] ?? 0).toDouble(),
+    ramUsedGb: (j['ram_used_gb'] ?? 0).toDouble(),
+    ramTotalGb: (j['ram_total_gb'] ?? 0).toDouble(),
+    ramPct: (j['ram_pct'] ?? 0).toDouble(),
+    diskUsedGb: (j['disk_used_gb'] ?? 0).toDouble(),
+    diskTotalGb: (j['disk_total_gb'] ?? 0).toDouble(),
+    diskPct: (j['disk_pct'] ?? 0).toDouble(),
+    gpus: (j['gpus'] as List? ?? []).map((g) => GpuMetric.fromJson(g)).toList(),
+  );
 }
 
 class RunningModel {
@@ -93,12 +96,12 @@ class RunningModel {
   });
 
   factory RunningModel.fromJson(Map<String, dynamic> j) => RunningModel(
-        name: j['name'] ?? '',
-        digest: j['digest'] ?? '',
-        sizeBytes: j['size'] ?? 0,
-        expiresAt: j['expires_at'] ?? '',
-        details: j['details'] ?? {},
-      );
+    name: j['name'] ?? '',
+    digest: j['digest'] ?? '',
+    sizeBytes: j['size'] ?? 0,
+    expiresAt: j['expires_at'] ?? '',
+    details: j['details'] ?? {},
+  );
 
   double get sizeGb => sizeBytes / 1e9;
   String get shortName => name.split(':').first;
@@ -131,17 +134,17 @@ class RequestRecord {
   });
 
   factory RequestRecord.fromJson(Map<String, dynamic> j) => RequestRecord(
-        ts:           j['ts']    ?? '',
-        model:        j['model'] ?? 'unknown',
-        serverId:     j['server_id'] as String? ?? 'default',
-        durationMs:   j['duration_ms'],
-        tokens:       j['tokens'],
-        error:        j['error'] == true,
-        tgTps:        j['tg_tps']   != null ? (j['tg_tps']   as num).toDouble() : null,
-        promptTokens: j['prompt_tokens'],
-        evalTokens:   j['eval_tokens'],
-        evalTps:      j['eval_tps']  != null ? (j['eval_tps']  as num).toDouble() : null,
-      );
+    ts: j['ts'] ?? '',
+    model: j['model'] ?? 'unknown',
+    serverId: j['server_id'] as String? ?? 'default',
+    durationMs: j['duration_ms'],
+    tokens: j['tokens'],
+    error: j['error'] == true,
+    tgTps: j['tg_tps'] != null ? (j['tg_tps'] as num).toDouble() : null,
+    promptTokens: j['prompt_tokens'],
+    evalTokens: j['eval_tokens'],
+    evalTps: j['eval_tps'] != null ? (j['eval_tps'] as num).toDouble() : null,
+  );
 
   double? get tokensPerSecond =>
       tgTps ??
@@ -154,28 +157,28 @@ class RequestRecord {
 class LogLine {
   final String ts;
   final String text;
-  final String source;   // 'server' | 'app'
-  final String level;    // 'info' | 'warn' | 'error' | 'debug'
+  final String source; // 'server' | 'app'
+  final String level; // 'info' | 'warn' | 'error' | 'debug'
   final String serverId;
 
   LogLine({
     required this.ts,
     required this.text,
-    this.source   = 'server',
-    this.level    = 'info',
+    this.source = 'server',
+    this.level = 'info',
     this.serverId = 'default',
   });
 
   factory LogLine.fromJson(Map<String, dynamic> j) => LogLine(
-        ts:       j['ts']        ?? '',
-        text:     j['text']      ?? '',
-        source:   j['source']    ?? 'server',
-        level:    j['level']     ?? 'info',
-        serverId: j['server_id'] as String? ?? 'default',
-      );
+    ts: j['ts'] ?? '',
+    text: j['text'] ?? '',
+    source: j['source'] ?? 'server',
+    level: j['level'] ?? 'info',
+    serverId: j['server_id'] as String? ?? 'default',
+  );
 
   bool get isError => level == 'error';
-  bool get isWarn  => level == 'warn';
+  bool get isWarn => level == 'warn';
   bool get isDebug => level == 'debug';
 }
 
@@ -195,14 +198,14 @@ class MonitorSnapshot {
   });
 
   factory MonitorSnapshot.fromJson(Map<String, dynamic> j) => MonitorSnapshot(
-        ts: DateTime.tryParse(j['ts'] ?? '') ?? DateTime.now(),
-        system: j['system'] != null ? SystemMetrics.fromJson(j['system']) : null,
-        runningModels: (j['running_models'] as List? ?? [])
-            .map((m) => RunningModel.fromJson(m))
-            .toList(),
-        ollamaVersion: j['ollama_version'] ?? 'unknown',
-        recentRequests: (j['recent_requests'] as List? ?? [])
-            .map((r) => RequestRecord.fromJson(r))
-            .toList(),
-      );
+    ts: DateTime.tryParse(j['ts'] ?? '') ?? DateTime.now(),
+    system: j['system'] != null ? SystemMetrics.fromJson(j['system']) : null,
+    runningModels: (j['running_models'] as List? ?? [])
+        .map((m) => RunningModel.fromJson(m))
+        .toList(),
+    ollamaVersion: j['ollama_version'] ?? 'unknown',
+    recentRequests: (j['recent_requests'] as List? ?? [])
+        .map((r) => RequestRecord.fromJson(r))
+        .toList(),
+  );
 }

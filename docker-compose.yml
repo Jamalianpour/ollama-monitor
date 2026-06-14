@@ -1,0 +1,43 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "12434:12434"
+    environment:
+      # Point to your Ollama server.
+      # Docker Desktop (Mac/Windows): host.docker.internal resolves to the host.
+      # Linux: use your host IP or add --add-host=host.docker.internal:host-gateway
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      MONITOR_DB: /data/monitor.db
+      POLL_INTERVAL: "2"
+      LOG_KEEP_DAYS: "7"
+      # Paths inside the container to the Ollama log files.
+      # Set these after mounting your Ollama log directory (see volumes below).
+      OLLAMA_SERVER_LOG: ${OLLAMA_SERVER_LOG:-}
+      OLLAMA_APP_LOG:    ${OLLAMA_APP_LOG:-}
+    volumes:
+      - db_data:/data
+      # ── Mount your Ollama log directory so the backend can tail it ──────────
+      # Uncomment ONE of the blocks below that matches your OS, adjust the path,
+      # then also set OLLAMA_SERVER_LOG / OLLAMA_APP_LOG in a .env file.
+      #
+      # Windows (Docker Desktop):
+      #   - C:\Users\<YourName>\AppData\Local\Ollama:/ollama_logs:ro
+      #
+      # Linux / macOS:
+      #   - ~/.ollama/logs:/ollama_logs:ro
+      #
+      # Then create a .env file next to docker-compose.yml:
+      #   OLLAMA_SERVER_LOG=/ollama_logs/server.log
+      #   OLLAMA_APP_LOG=/ollama_logs/app.log
+      # ────────────────────────────────────────────────────────────────────────
+    restart: unless-stopped
+
+  frontend:
+    build: ./ollama_monitor_app
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  db_data:

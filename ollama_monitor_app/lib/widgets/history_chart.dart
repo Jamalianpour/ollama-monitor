@@ -16,7 +16,11 @@ class HistoryChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spots = data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList();
+    final spots = data
+        .asMap()
+        .entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value))
+        .toList();
 
     return Card(
       child: Padding(
@@ -24,17 +28,22 @@ class HistoryChart extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(color: Colors.white70)),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 100,
               child: spots.isEmpty
                   ? const Center(
-                      child: Text('No data yet', style: TextStyle(color: Colors.white38)))
+                      child: Text(
+                        'No data yet',
+                        style: TextStyle(color: Colors.white38),
+                      ),
+                    )
                   : LineChart(
                       LineChartData(
                         minY: 0,
@@ -57,16 +66,21 @@ class HistoryChart extends StatelessWidget {
                               getTitlesWidget: (v, _) => Text(
                                 '${v.toInt()}%',
                                 style: const TextStyle(
-                                    color: Colors.white38, fontSize: 10),
+                                  color: Colors.white38,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
                           ),
-                          rightTitles:
-                              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles:
-                              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          bottomTitles:
-                              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          bottomTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                         ),
                         borderData: FlBorderData(show: false),
                         lineBarsData: [

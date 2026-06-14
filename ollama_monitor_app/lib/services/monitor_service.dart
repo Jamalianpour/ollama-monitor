@@ -14,8 +14,8 @@ class _BackendConn {
   final BackendEntry entry;
   WebSocketChannel? channel;
   Timer? reconnectTimer;
-  bool   connected = false;
-  String status    = 'Connecting…';
+  bool connected = false;
+  String status = 'Connecting…';
 
   _BackendConn(this.entry);
 
@@ -34,16 +34,16 @@ class MonitorService extends ChangeNotifier {
   String _selectedServerId = '';
 
   // ── Per-server snapshot + history maps ───────────────────────────────────────
-  final Map<String, MonitorSnapshot?> _snapshots    = {};
-  final Map<String, List<double>>     _cpuHistories = {};
-  final Map<String, List<double>>     _ramHistories = {};
+  final Map<String, MonitorSnapshot?> _snapshots = {};
+  final Map<String, List<double>> _cpuHistories = {};
+  final Map<String, List<double>> _ramHistories = {};
 
   // ── Shared collections (all backends, tagged by serverId) ─────────────────
-  final List<LogLine>        _logs     = [];
-  final List<RequestRecord>  _requests = [];
+  final List<LogLine> _logs = [];
+  final List<RequestRecord> _requests = [];
   final List<Map<String, dynamic>> _logFiles = [];
 
-  bool   _historyLoaded = false;
+  bool _historyLoaded = false;
 
   // ── Public getters ──────────────────────────────────────────────────────────
 
@@ -53,14 +53,13 @@ class MonitorService extends ChangeNotifier {
       .map((c) => ServerInfo(id: c.entry.id, name: c.entry.name))
       .toList();
 
-  bool get connected =>
-      _connections.values.any((c) => c.connected);
+  bool get connected => _connections.values.any((c) => c.connected);
 
   String get statusMessage {
     final conn = _connections[_selectedServerId];
     if (conn != null) return conn.status;
     if (_connections.isEmpty) return 'No servers configured';
-    final ok  = _connections.values.where((c) => c.connected).length;
+    final ok = _connections.values.where((c) => c.connected).length;
     final tot = _connections.length;
     return '$ok/$tot connected';
   }
@@ -123,8 +122,9 @@ class MonitorService extends ChangeNotifier {
   // ── Aggregate stats ───────────────────────────────────────────────────────────
 
   AggregateStats statsFor(double hours) {
-    final cutoff = DateTime.now()
-        .subtract(Duration(milliseconds: (hours * 3600 * 1000).round()));
+    final cutoff = DateTime.now().subtract(
+      Duration(milliseconds: (hours * 3600 * 1000).round()),
+    );
     final recent = _requests.where((r) {
       final ts = DateTime.tryParse(r.ts);
       if (ts == null || !ts.isAfter(cutoff)) return false;
@@ -145,7 +145,7 @@ class MonitorService extends ChangeNotifier {
       modelMap.putIfAbsent(r.model, () => []).add(r);
     }
     final byModel = modelMap.entries.map((e) {
-      final ms   = e.value
+      final ms = e.value
           .where((r) => r.durationMs != null)
           .map((r) => r.durationMs!.toDouble())
           .toList();
@@ -154,22 +154,19 @@ class MonitorService extends ChangeNotifier {
           .map((r) => r.tokens!.toDouble())
           .toList();
       return ModelStat(
-        model:     e.key,
-        calls:     e.value.length,
-        avgMs:     ms.isNotEmpty
-            ? ms.reduce((a, b) => a + b) / ms.length
-            : null,
+        model: e.key,
+        calls: e.value.length,
+        avgMs: ms.isNotEmpty ? ms.reduce((a, b) => a + b) / ms.length : null,
         avgTokens: tkns.isNotEmpty
             ? tkns.reduce((a, b) => a + b) / tkns.length
             : null,
       );
-    }).toList()
-      ..sort((a, b) => b.calls.compareTo(a.calls));
+    }).toList()..sort((a, b) => b.calls.compareTo(a.calls));
 
     return AggregateStats(
-      hours:         hours,
+      hours: hours,
       totalRequests: recent.length,
-      errors:        recent.where((r) => r.error).length,
+      errors: recent.where((r) => r.error).length,
       avgDurationMs: durations.isNotEmpty
           ? durations.reduce((a, b) => a + b) / durations.length
           : null,
@@ -224,10 +221,10 @@ class MonitorService extends ChangeNotifier {
       conn.channel!.stream.listen(
         (raw) => _onMessage(raw, conn.entry.id),
         onError: (_) => _onBackendError(conn),
-        onDone:  ()  => _onBackendDone(conn),
+        onDone: () => _onBackendDone(conn),
       );
       conn.connected = true;
-      conn.status    = 'Connected';
+      conn.status = 'Connected';
       notifyListeners();
       _loadBackendHistory(conn.entry);
     } catch (_) {
@@ -238,7 +235,7 @@ class MonitorService extends ChangeNotifier {
   void _onBackendError(_BackendConn conn) {
     if (!_connections.containsKey(conn.entry.id)) return;
     conn.connected = false;
-    conn.status    = 'Disconnected – retrying in 3s…';
+    conn.status = 'Disconnected – retrying in 3s…';
     notifyListeners();
     conn.reconnectTimer?.cancel();
     conn.reconnectTimer = Timer(const Duration(seconds: 3), () {
@@ -249,7 +246,7 @@ class MonitorService extends ChangeNotifier {
   void _onBackendDone(_BackendConn conn) {
     if (!_connections.containsKey(conn.entry.id)) return;
     conn.connected = false;
-    conn.status    = 'Connection closed – retrying in 3s…';
+    conn.status = 'Connection closed – retrying in 3s…';
     notifyListeners();
     conn.reconnectTimer?.cancel();
     conn.reconnectTimer = Timer(const Duration(seconds: 3), () {
@@ -259,7 +256,7 @@ class MonitorService extends ChangeNotifier {
 
   void _onMessage(dynamic raw, String backendId) {
     try {
-      final msg  = json.decode(raw as String) as Map<String, dynamic>;
+      final msg = json.decode(raw as String) as Map<String, dynamic>;
       final type = msg['type'] as String?;
       final data = msg['data'];
 
@@ -288,7 +285,11 @@ class MonitorService extends ChangeNotifier {
             m['server_id'] = backendId;
             final rec = RequestRecord.fromJson(m);
             if (!_requests.any(
-                (x) => x.ts == rec.ts && x.model == rec.model && x.serverId == backendId)) {
+              (x) =>
+                  x.ts == rec.ts &&
+                  x.model == rec.model &&
+                  x.serverId == backendId,
+            )) {
               _requests.add(rec);
             }
           }
@@ -330,27 +331,34 @@ class MonitorService extends ChangeNotifier {
     _historyLoaded = false;
     notifyListeners();
     await Future.wait(
-      _connections.values.map((c) => _loadBackendHistory(c.entry, hours: hours)),
+      _connections.values.map(
+        (c) => _loadBackendHistory(c.entry, hours: hours),
+      ),
     );
     _historyLoaded = true;
     notifyListeners();
   }
 
-  Future<void> _loadBackendHistory(BackendEntry entry, {double hours = 24}) async {
-    final base    = entry.url;
+  Future<void> _loadBackendHistory(
+    BackendEntry entry, {
+    double hours = 24,
+  }) async {
+    final base = entry.url;
     final headers = {'Authorization': 'Bearer ${entry.token}'};
-    final sid     = entry.id;
+    final sid = entry.id;
 
     try {
       final resp = await http
-          .get(Uri.parse('$base/api/history/metrics?hours=$hours&limit=120'),
-              headers: headers)
+          .get(
+            Uri.parse('$base/api/history/metrics?hours=$hours&limit=120'),
+            headers: headers,
+          )
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as Map<String, dynamic>;
         final rows = data['rows'] as List? ?? [];
-        final cpu  = <double>[];
-        final ram  = <double>[];
+        final cpu = <double>[];
+        final ram = <double>[];
         for (final r in rows) {
           cpu.add((r['cpu_pct'] as num? ?? 0).toDouble());
           ram.add((r['ram_pct'] as num? ?? 0).toDouble());
@@ -364,8 +372,10 @@ class MonitorService extends ChangeNotifier {
 
     try {
       final resp = await http
-          .get(Uri.parse('$base/api/history/requests?hours=$hours&limit=500'),
-              headers: headers)
+          .get(
+            Uri.parse('$base/api/history/requests?hours=$hours&limit=500'),
+            headers: headers,
+          )
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as Map<String, dynamic>;
@@ -405,8 +415,8 @@ class MonitorService extends ChangeNotifier {
 // ── Aggregate stats models ────────────────────────────────────────────────────
 
 class ModelStat {
-  final String  model;
-  final int     calls;
+  final String model;
+  final int calls;
   final double? avgMs;
   final double? avgTokens;
 
@@ -418,17 +428,19 @@ class ModelStat {
   });
 
   factory ModelStat.fromJson(Map<String, dynamic> j) => ModelStat(
-        model:     j['model']      ?? '',
-        calls:     j['calls']      ?? 0,
-        avgMs:     j['avg_ms']     != null ? (j['avg_ms']     as num).toDouble() : null,
-        avgTokens: j['avg_tokens'] != null ? (j['avg_tokens'] as num).toDouble() : null,
-      );
+    model: j['model'] ?? '',
+    calls: j['calls'] ?? 0,
+    avgMs: j['avg_ms'] != null ? (j['avg_ms'] as num).toDouble() : null,
+    avgTokens: j['avg_tokens'] != null
+        ? (j['avg_tokens'] as num).toDouble()
+        : null,
+  );
 }
 
 class AggregateStats {
-  final double  hours;
-  final int     totalRequests;
-  final int     errors;
+  final double hours;
+  final int totalRequests;
+  final int errors;
   final double? avgDurationMs;
   final double? maxDurationMs;
   final double? avgTps;

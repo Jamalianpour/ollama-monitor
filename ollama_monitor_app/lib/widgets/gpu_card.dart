@@ -29,12 +29,13 @@ class GpuCard extends StatelessWidget {
                   child: Text(
                     gpu.name,
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (gpu.temperatureC != null)
-                  _TempBadge(gpu.temperatureC!),
+                if (gpu.temperatureC != null) _TempBadge(gpu.temperatureC!),
               ],
             ),
             const SizedBox(height: 12),
@@ -84,8 +85,10 @@ class _Bar extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(label,
-                style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
             const Spacer(),
             Text(
               subtitle ?? '${value.toStringAsFixed(0)}%',
@@ -117,13 +120,15 @@ class _TempBadge extends StatelessWidget {
     final color = temp > 85
         ? Colors.red.shade400
         : temp > 70
-            ? Colors.orange.shade400
-            : Colors.white54;
+        ? Colors.orange.shade400
+        : Colors.white54;
     return Row(
       children: [
         Icon(Icons.thermostat, color: color, size: 14),
-        Text('${temp.toStringAsFixed(0)}°C',
-            style: TextStyle(color: color, fontSize: 11)),
+        Text(
+          '${temp.toStringAsFixed(0)}°C',
+          style: TextStyle(color: color, fontSize: 11),
+        ),
       ],
     );
   }

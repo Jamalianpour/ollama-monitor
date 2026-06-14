@@ -1,13 +1,29 @@
 import secrets
+import time
+from collections import defaultdict
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 import database as db
 from auth import require_auth
 from state import _valid_tokens
 
 router = APIRouter(tags=["auth"])
+
+# ── Login rate limiter ────────────────────────────────────────────────────────
+# Tracks failed login timestamps per IP; cleared on successful login.
+_login_failures: dict[str, list[float]] = defaultdict(list)
+_WINDOW   = 60   # sliding window in seconds
+_MAX_FAIL = 10   # max failures allowed per window before lockout
+
+
+def _rate_check(ip: str) -> None:
+    now    = time.monotonic()
+    recent = [t for t in _login_failures[ip] if now - t < _WINDOW]
+    _login_failures[ip] = recent
+    if len(recent) >= _MAX_FAIL:
+        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in a minute.")
 
 
 @router.get("/api/auth/status")
@@ -31,13 +47,18 @@ async def auth_setup(body: dict):
 
 
 @router.post("/api/auth/login")
-async def auth_login(body: dict):
+async def auth_login(body: dict, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _rate_check(ip)
     password = body.get("password", "")
     stored = db.get_setting("password_hash")
     if stored is None:
         raise HTTPException(status_code=403, detail="No password configured yet")
     if not bcrypt.checkpw(password.encode(), stored.encode()):
+        _login_failures[ip].append(time.monotonic())
         raise HTTPException(status_code=401, detail="Incorrect password")
+    # Successful login — clear failure history for this IP
+    _login_failures.pop(ip, None)
     token = secrets.token_urlsafe(32)
     _valid_tokens.add(token)
     db.create_session(token)

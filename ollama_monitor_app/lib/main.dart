@@ -10,7 +10,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final authService = AuthService();
-  await authService.init();   // loads stored token + checks /api/auth/status
+  await authService.init(); // loads stored token + checks /api/auth/status
 
   runApp(
     MultiProvider(
@@ -57,8 +57,10 @@ class OllamaMonitorApp extends StatelessWidget {
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.white),
           bodySmall: TextStyle(color: Colors.white70),
-          labelLarge:
-              TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          labelLarge: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -73,8 +75,10 @@ class OllamaMonitorApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide:
-                const BorderSide(color: Colors.deepPurpleAccent, width: 1.5),
+            borderSide: const BorderSide(
+              color: Colors.deepPurpleAccent,
+              width: 1.5,
+            ),
           ),
           labelStyle: const TextStyle(color: Colors.white54),
           hintStyle: const TextStyle(color: Colors.white30),
@@ -100,7 +104,7 @@ class _AuthGate extends StatelessWidget {
       child: switch (auth.state) {
         AuthState.loading => const _LoadingScreen(),
         AuthState.loggedIn => const DashboardScreen(),
-        _ => const AuthScreen(),   // noPassword or loggedOut
+        _ => const AuthScreen(), // noPassword or loggedOut
       },
     );
   }
@@ -119,8 +123,10 @@ class _LoadingScreen extends StatelessWidget {
           children: [
             CircularProgressIndicator(color: Colors.deepPurpleAccent),
             SizedBox(height: 16),
-            Text('Connecting…',
-                style: TextStyle(color: Colors.white54, fontSize: 14)),
+            Text(
+              'Connecting…',
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
           ],
         ),
       ),

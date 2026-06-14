@@ -1,0 +1,46 @@
+[Unit]
+Description=Ollama Monitor Backend
+Documentation=https://github.com/YOUR_USERNAME/ollama-monitor
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/ollama-monitor/backend
+
+# ── Paths ──────────────────────────────────────────────────────────────────
+# Edit these if your install is somewhere else
+ExecStart=/opt/ollama-monitor/.venv/bin/python main.py
+
+# ── Environment ────────────────────────────────────────────────────────────
+# Override any of these in /etc/ollama-monitor/env or via EnvironmentFile
+Environment=OLLAMA_HOST=http://localhost:11434
+Environment=POLL_INTERVAL=2
+Environment=LOG_KEEP_DAYS=7
+# Environment=OLLAMA_LOG=/var/log/ollama.log
+# Environment=MONITOR_DB=/var/lib/ollama-monitor/monitor.db
+
+# Load overrides from a file (optional, create if needed)
+EnvironmentFile=-/etc/ollama-monitor/env
+
+# ── Restart policy ─────────────────────────────────────────────────────────
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# ── Hardening ──────────────────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ollama-monitor /opt/ollama-monitor
+
+# ── Logging ────────────────────────────────────────────────────────────────
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ollama-monitor
+
+[Install]
+WantedBy=multi-user.target

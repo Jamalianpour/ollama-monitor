@@ -35,8 +35,7 @@ class _LogViewerState extends State<LogViewer> {
     }
   }
 
-  Set<String> get _availableSources =>
-      widget.logs.map((l) => l.source).toSet();
+  Set<String> get _availableSources => widget.logs.map((l) => l.source).toSet();
 
   List<LogLine> get _filtered {
     return widget.logs.where((l) {
@@ -75,13 +74,18 @@ class _LogViewerState extends State<LogViewer> {
             // ── Header ───────────────────────────────────────────────────────
             Row(
               children: [
-                const Icon(Icons.article_outlined, color: Colors.amber, size: 18),
+                const Icon(
+                  Icons.article_outlined,
+                  color: Colors.amber,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
-                Text('Logs',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: Colors.white70)),
+                Text(
+                  'Logs',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+                ),
                 const SizedBox(width: 12),
                 // Log file paths
                 Expanded(
@@ -89,15 +93,17 @@ class _LogViewerState extends State<LogViewer> {
                     widget.logFiles.isEmpty
                         ? 'no log files found'
                         : widget.logFiles
-                            .map((f) => f['path'] as String? ?? '')
-                            .join('  •  '),
+                              .map((f) => f['path'] as String? ?? '')
+                              .join('  •  '),
                     style: const TextStyle(color: Colors.white24, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // Auto-scroll toggle
-                const Text('Auto-scroll',
-                    style: TextStyle(color: Colors.white38, fontSize: 11)),
+                const Text(
+                  'Auto-scroll',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
                 Switch(
                   value: _autoScroll,
                   onChanged: (v) => setState(() => _autoScroll = v),
@@ -139,11 +145,16 @@ class _LogViewerState extends State<LogViewer> {
               decoration: InputDecoration(
                 hintText: 'Filter logs…',
                 hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
-                prefixIcon:
-                    const Icon(Icons.search, color: Colors.white38, size: 16),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: Colors.white38,
+                  size: 16,
+                ),
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
                 filled: true,
                 fillColor: Colors.white10,
                 border: OutlineInputBorder(
@@ -160,8 +171,11 @@ class _LogViewerState extends State<LogViewer> {
               height: 300,
               child: filtered.isEmpty
                   ? const Center(
-                      child: Text('No log lines',
-                          style: TextStyle(color: Colors.white38)))
+                      child: Text(
+                        'No log lines',
+                        style: TextStyle(color: Colors.white38),
+                      ),
+                    )
                   : ListView.builder(
                       controller: _scroll,
                       itemCount: filtered.length,
@@ -176,8 +190,11 @@ class _LogViewerState extends State<LogViewer> {
                               if (sources.length > 1) ...[
                                 Container(
                                   width: 30,
-                                  margin: const EdgeInsets.only(right: 6, top: 1),
-                                  child: Text(
+                                  margin: const EdgeInsets.only(
+                                    right: 6,
+                                    top: 1,
+                                  ),
+                                  child: SelectableText(
                                     line.source == 'app' ? 'app' : 'srv',
                                     style: TextStyle(
                                       fontSize: 9,
@@ -188,7 +205,7 @@ class _LogViewerState extends State<LogViewer> {
                                 ),
                               ],
                               Expanded(
-                                child: Text(
+                                child: SelectableText(
                                   line.text,
                                   style: TextStyle(
                                     fontFamily: 'monospace',
@@ -236,11 +253,14 @@ class _SourceChip extends StatelessWidget {
           border: Border.all(color: selected ? fg : Colors.white24),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: selected ? fg : Colors.white38)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: selected ? fg : Colors.white38,
+          ),
+        ),
       ),
     );
   }

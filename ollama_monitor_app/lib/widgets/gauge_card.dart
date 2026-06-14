@@ -30,11 +30,12 @@ class GaugeCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(color: Colors.white70)),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 120,
@@ -65,19 +66,20 @@ class GaugeCard extends StatelessWidget {
                   Text(
                     '${value.toStringAsFixed(0)}%',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: _gaugeColor,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: _gaugeColor,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 4),
-            Text(subtitle,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.white54)),
+            Text(
+              subtitle,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+            ),
           ],
         ),
       ),

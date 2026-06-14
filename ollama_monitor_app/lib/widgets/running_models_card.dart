@@ -19,23 +19,31 @@ class RunningModelsCard extends StatelessWidget {
               children: [
                 const Icon(Icons.memory, color: Colors.greenAccent, size: 18),
                 const SizedBox(width: 8),
-                Text('Running Models',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: Colors.white70)),
+                Text(
+                  'Running Models',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+                ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: models.isEmpty ? Colors.white12 : Colors.greenAccent.withValues(alpha: 0.2),
+                    color: models.isEmpty
+                        ? Colors.white12
+                        : Colors.greenAccent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${models.length} active',
                     style: TextStyle(
                       fontSize: 11,
-                      color: models.isEmpty ? Colors.white38 : Colors.greenAccent,
+                      color: models.isEmpty
+                          ? Colors.white38
+                          : Colors.greenAccent,
                     ),
                   ),
                 ),
@@ -46,8 +54,10 @@ class RunningModelsCard extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Center(
-                  child: Text('No models currently loaded',
-                      style: TextStyle(color: Colors.white38)),
+                  child: Text(
+                    'No models currently loaded',
+                    style: TextStyle(color: Colors.white38),
+                  ),
                 ),
               )
             else
@@ -86,7 +96,9 @@ class _ModelRow extends StatelessWidget {
                 Text(
                   model.shortName,
                   style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
                   'tag: ${model.tag}  •  ${model.sizeGb.toStringAsFixed(1)} GB',
@@ -119,8 +131,10 @@ class _Chip extends StatelessWidget {
         color: Colors.white10,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(label,
-          style: const TextStyle(fontSize: 10, color: Colors.white54)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 10, color: Colors.white54),
+      ),
     );
   }
 }
